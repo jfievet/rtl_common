@@ -46,7 +46,7 @@ end package;
 """
 
 # Write to VHDL file
-with open("../src/timestamp_pkg.vhd", "w") as file:
+with open("../../src/timestamp_pkg.vhd", "w") as file:
     file.write(vhdl_content)
 
 print("timestamp_pkg.vhd generated successfully!")
