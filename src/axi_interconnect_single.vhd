@@ -1,3 +1,14 @@
+-- TODO 1: Store AWADDR only upon an AWVALID/AWREADY handshake.
+-- TODO 2: Store ARADDR only upon an ARVALID/ARREADY handshake.
+-- TODO 3: Store WDATA/WSTRB upon a WVALID/WREADY handshake and keep them stable.
+-- TODO 4: Route W using the stored AW destination, not the current AWADDR.
+-- TODO 5: Handle WVALID arriving before AWVALID (independent channels).
+-- TODO 6: Route R responses using the stored ARADDR, not the current ARADDR.
+-- TODO 7: Assert BREADY/RREADY only on the selected port A or B.
+-- TODO 8: Prevent new write transactions until the BVALID/BREADY handshake completes.
+-- TODO 9: Prevent new read transactions until the RVALID/RREADY handshake completes.
+-- TODO 10: Ensure BRESP and RRESP are correctly forwarded and remain stable.
+
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
@@ -266,15 +277,23 @@ begin
 
                     when send_valid =>
 
-                        -- Attention, this part might be buggy, there is no handshaking on the wvalid
-                        if (s_axi_awaddr_stored >= addr_start and s_axi_awaddr_stored <= addr_end) then
-                            s_axi_wready_t                                                <= '1';
-                            m_a_axi_wvalid                                                <= '0';
-                            w_sm                                                          <= idle;
+                        if (s_axi_awaddr_stored >= addr_start and
+                            s_axi_awaddr_stored <= addr_end) then
+
+                            if (m_a_axi_wvalid = '1' and m_a_axi_wready = '1') then
+                                s_axi_wready_t <= '1';
+                                m_a_axi_wvalid <= '0';
+                                w_sm <= idle;
+                            end if;
+
                         else
-                            s_axi_wready_t <= '1';
-                            m_b_axi_wvalid <= '0';
-                            w_sm           <= idle;
+
+                            if (m_b_axi_wvalid = '1' and m_b_axi_wready = '1') then
+                                s_axi_wready_t <= '1';
+                                m_b_axi_wvalid <= '0';
+                                w_sm <= idle;
+                            end if;
+
                         end if;
 
                     when others =>
