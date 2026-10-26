@@ -7,7 +7,8 @@ entity axi_uart is
         G_SYS_FREQ : natural := 50_000_000;
         G_BAUDRATE : natural := 115200;
         G_TX_DEPTH : natural := 16;
-        G_RX_DEPTH : natural := 16
+        G_RX_DEPTH : natural := 16;
+        G_DEBUG_CONSOLE : boolean := false
     );
     port (
         ACLK    : in std_logic;
@@ -55,10 +56,8 @@ architecture rtl of axi_uart is
     constant C_ADDR_RX_LEVEL : std_logic_vector(31 downto 0) := x"0000000C";
     constant C_ADDR_RESET    : std_logic_vector(31 downto 0) := x"00000010";
 
-    type tx_state_t is (TX_IDLE, TX_POP, TX_WAIT, TX_LATCH, TX_SEND);
     type wr_state_t is (WR_COLLECT, WR_RESPONSE);
     type rd_state_t is (RD_IDLE, RD_RESPONSE);
-    signal tx_state : tx_state_t := TX_IDLE;
     signal wr_state : wr_state_t := WR_COLLECT;
     signal rd_state : rd_state_t := RD_IDLE;
 
@@ -106,8 +105,6 @@ begin
     RDATA <= rdata_r;
 
     -- One synchronous controller for the AXI-Lite channels and TX FIFO/UART.
-    -- The TX FIFO is assumed to provide its popped word ONE clock after
-    -- its output handshake. TX_WAIT + TX_LATCH accommodate this latency.
     process(ACLK)
         variable have_aw : boolean;
         variable have_w : boolean;
@@ -131,15 +128,10 @@ begin
                 tx_fifo_wr_en <= '0';
                 tx_fifo_wr_data <= (others => '0');
                 rx_fifo_rd_ready <= '0';
-                tx_fifo_rd_ready <= '0';
-                tx_axis_valid <= '0';
-                tx_axis_data <= (others => '0');
-                tx_state <= TX_IDLE;
                 fifo_reset_pulse <= '0';
             else
                 tx_fifo_wr_en <= '0';
                 rx_fifo_rd_ready <= '0';
-                tx_fifo_rd_ready <= '0';
                 fifo_reset_pulse <= '0';
 
                 -- AXI-Lite write: capture AW and W independently, respond once.
@@ -223,34 +215,17 @@ begin
                         end if;
                 end case;
 
-                -- TX: pop once, wait for synchronous FIFO output, then
-                -- hold data/valid until the UART AXIS handshake.
-                case tx_state is
-                    when TX_IDLE =>
-                        tx_axis_valid <= '0';
-                        if tx_fifo_rd_valid = '1' then
-                            tx_fifo_rd_ready <= '1';
-                            tx_state <= TX_POP;
-                        end if;
-                    when TX_POP =>
-                        -- FIFO samples registered ready at this edge.
-                        tx_state <= TX_WAIT;
-                    when TX_WAIT =>
-                        -- Allow FIFO output register to settle.
-                        tx_state <= TX_LATCH;
-                    when TX_LATCH =>
-                        tx_axis_data <= tx_fifo_rd_data;
-                        tx_axis_valid <= '1';
-                        tx_state <= TX_SEND;
-                    when TX_SEND =>
-                        if tx_axis_valid = '1' and tx_axis_ready = '1' then
-                            tx_axis_valid <= '0';
-                            tx_state <= TX_IDLE;
-                        end if;
-                end case;
             end if;
         end if;
     end process;
+
+    ---------------------------------------------------------------------------
+    -- TX FIFO -> UART AXI-STREAM
+    ---------------------------------------------------------------------------
+
+    tx_axis_data     <= tx_fifo_rd_data;
+    tx_axis_valid    <= tx_fifo_rd_valid;
+    tx_fifo_rd_ready <= tx_axis_ready;
 
     tx_fifo_inst : entity work.axi_fifo
         generic map (DATA_WIDTH => 8, DEPTH => G_TX_DEPTH)
@@ -305,4 +280,102 @@ begin
             txd => uart_tx,
             rxd => uart_rx
         );
+
+    ---------------------------------------------------------------------------
+    -- DEBUG CONSOLE : UART TX
+    ---------------------------------------------------------------------------
+    -- Displays each transmitted UART byte in ASCII and HEX.
+    -- Triggered only on a valid AXI-Stream handshake.
+    -- Simulation only.
+    ---------------------------------------------------------------------------
+
+    gen_debug_console : if G_DEBUG_CONSOLE generate
+
+        -- synthesis translate_off
+
+    debug_tx_fifo_in_pr : process(ACLK)
+        variable v_byte  : integer;
+        variable v_ascii : character;
+    begin
+        if rising_edge(ACLK) then
+
+            if core_resetn = '1' then
+
+                if tx_fifo_wr_en = '1' and tx_fifo_wr_ready = '1' then
+
+                    v_byte := to_integer(unsigned(tx_fifo_wr_data));
+
+                    if v_byte >= 32 and v_byte <= 126 then
+                        v_ascii := character'val(v_byte);
+                    else
+                        v_ascii := '.';
+                    end if;
+
+                    report "FIFO TX IN | ASCII: '" & v_ascii &
+                           "' | HEX: 0x" & to_hstring(tx_fifo_wr_data)
+                           severity note;
+
+                end if;
+
+            end if;
+
+        end if;
+    end process;
+
+
+    debug_tx_fifo_out_pr : process(ACLK)
+        variable v_byte  : integer;
+        variable v_ascii : character;
+    begin
+        if rising_edge(ACLK) then
+
+            if core_resetn = '1' then
+
+                if tx_fifo_rd_valid = '1' and
+                   tx_fifo_rd_ready = '1' then
+
+                    v_byte := to_integer(unsigned(tx_fifo_rd_data));
+
+                    if v_byte >= 32 and v_byte <= 126 then
+                        v_ascii := character'val(v_byte);
+                    else
+                        v_ascii := '.';
+                    end if;
+
+                    report "FIFO TX OUT | ASCII: '" & v_ascii &
+                           "' | HEX: 0x" & to_hstring(tx_fifo_rd_data)
+                           severity note;
+
+                end if;
+
+            end if;
+
+        end if;
+    end process;
+
+     debug_uart_tx_pr : process(ACLK)
+         variable v_byte  : integer;
+         variable v_ascii : character;
+     begin
+         if rising_edge(ACLK) then
+             if core_resetn = '1' then
+                 if tx_axis_valid = '1' and tx_axis_ready = '1' then
+                     v_byte := to_integer(unsigned(tx_axis_data));
+                     -- Printable ASCII characters (32 to 126)
+                     if v_byte >= 32 and v_byte <= 126 then
+                         v_ascii := character'val(v_byte);
+                     else
+                         v_ascii := '.';
+                     end if;
+                     report "UART TX | ASCII: '" & v_ascii &
+                            "' | HEX: 0x" & to_hstring(tx_axis_data)
+                            severity note;
+                 end if;
+             end if;
+         end if;
+     end process;
+        -- synthesis translate_on
+
+    end generate gen_debug_console;
+
 end architecture;

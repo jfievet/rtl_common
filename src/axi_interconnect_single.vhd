@@ -113,6 +113,8 @@ architecture rtl of axi_interconnect_single is
     signal m_b_axi_arvalid_t : std_logic;
     signal m_a_axi_rready_t  : std_logic;
     signal m_b_axi_rready_t  : std_logic;
+    signal m_a_axi_wvalid_t  : std_logic;
+    signal m_b_axi_wvalid_t  : std_logic;
 
 begin
 
@@ -129,6 +131,7 @@ begin
     m_a_axi_rready  <= m_a_axi_rready_t;
     m_b_axi_rready  <= m_b_axi_rready_t;
     s_axi_rvalid    <= s_axi_rvalid_t;
+    m_a_axi_wvalid <= m_a_axi_wvalid_t;
 
     process (clock, async_reset) is
     begin
@@ -144,7 +147,7 @@ begin
             s_axi_rresp          <= (others => '0');
             m_a_axi_awvalid_t    <= '0';
             m_a_axi_awaddr       <= (others => '0');
-            m_a_axi_wvalid       <= '0';
+            m_a_axi_wvalid_t     <= '0';
             m_a_axi_wdata        <= (others => '0');
             m_a_axi_wstrb        <= (others => '0');
             m_a_axi_bready_t     <= '0';
@@ -153,7 +156,7 @@ begin
             m_a_axi_rready_t     <= '0';
             m_b_axi_awvalid_t    <= '0';
             m_b_axi_awaddr       <= (others => '0');
-            m_b_axi_wvalid       <= '0';
+            m_b_axi_wvalid_t     <= '0';
             m_b_axi_wdata        <= (others => '0');
             m_b_axi_wstrb        <= (others => '0');
             m_b_axi_bready_t     <= '0';
@@ -182,7 +185,7 @@ begin
                 s_axi_rresp          <= (others => '0');
                 m_a_axi_awvalid_t    <= '0';
                 m_a_axi_awaddr       <= (others => '0');
-                m_a_axi_wvalid       <= '0';
+                m_a_axi_wvalid_t     <= '0';
                 m_a_axi_wdata        <= (others => '0');
                 m_a_axi_wstrb        <= (others => '0');
                 m_a_axi_bready_t     <= '0';
@@ -191,7 +194,7 @@ begin
                 m_a_axi_rready_t     <= '0';
                 m_b_axi_awvalid_t    <= '0';
                 m_b_axi_awaddr       <= (others => '0');
-                m_b_axi_wvalid       <= '0';
+                m_b_axi_wvalid_t     <= '0';
                 m_b_axi_wdata        <= (others => '0');
                 m_b_axi_wstrb        <= (others => '0');
                 m_b_axi_bready_t     <= '0';
@@ -266,9 +269,9 @@ begin
                             m_a_axi_wstrb                                   <= s_axi_wstrb;
                             m_b_axi_wstrb                                   <= s_axi_wstrb;
                             if (s_axi_awaddr >= addr_start and s_axi_awaddr <= addr_end) then
-                                m_a_axi_wvalid                                  <= '1';
+                                m_a_axi_wvalid_t                            <= '1';
                             else
-                                m_b_axi_wvalid <= '1';
+                                m_b_axi_wvalid_t <= '1';
                             end if;
                             w_sm <= send_valid;
                         else
@@ -280,17 +283,17 @@ begin
                         if (s_axi_awaddr_stored >= addr_start and
                             s_axi_awaddr_stored <= addr_end) then
 
-                            if (m_a_axi_wvalid = '1' and m_a_axi_wready = '1') then
+                            if (m_a_axi_wvalid_t = '1' and m_a_axi_wready = '1') then
                                 s_axi_wready_t <= '1';
-                                m_a_axi_wvalid <= '0';
+                                m_a_axi_wvalid_t <= '0';
                                 w_sm <= idle;
                             end if;
 
                         else
 
-                            if (m_b_axi_wvalid = '1' and m_b_axi_wready = '1') then
+                            if (m_b_axi_wvalid_t = '1' and m_b_axi_wready = '1') then
                                 s_axi_wready_t <= '1';
-                                m_b_axi_wvalid <= '0';
+                                m_b_axi_wvalid_t <= '0';
                                 w_sm <= idle;
                             end if;
 
