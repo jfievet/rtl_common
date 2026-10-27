@@ -3,10 +3,17 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 entity axi_gpio is
+    generic (
+        USE_ASYNC_RESET    : boolean   := TRUE;
+        USE_SYNC_RESET     : boolean   := TRUE;
+        ASYNC_RESET_ACTIVE : std_logic := '1';
+        SYNC_RESET_ACTIVE  : std_logic := '1'
+    );
   port (
     -- AXI4-Lite clock & reset
     s_axi_aclk    : in  std_logic;
-    s_axi_aresetn : in  std_logic;
+    async_reset : in std_logic;
+    sync_reset  : in std_logic;
 
     -- AXI4-Lite write address channel
     s_axi_awaddr  : in  std_logic_vector(32-1 downto 0);
@@ -86,12 +93,17 @@ begin
   ------------------------------------------------------------------------------
   -- Write address handshake
   ------------------------------------------------------------------------------
-  process (s_axi_aclk)
+  process (s_axi_aclk, async_reset) is
   begin
-    if rising_edge(s_axi_aclk) then
-      if s_axi_aresetn = '0' then
+    if ((async_reset = ASYNC_RESET_ACTIVE) and (USE_ASYNC_RESET = true)) then
         axi_awready <= '0';
         aw_en       <= '1';
+        awaddr_reg <= (others => '0');
+    elsif rising_edge(s_axi_aclk) then
+        if ((sync_reset = SYNC_RESET_ACTIVE) and (USE_SYNC_RESET = true)) then
+            axi_awready <= '0';
+            aw_en       <= '1';
+            awaddr_reg <= (others => '0');
       else
         if (axi_awready = '0') and (s_axi_awvalid = '1') and (s_axi_wvalid = '1') and (aw_en = '1') then
           axi_awready <= '1';
@@ -110,11 +122,13 @@ begin
   ------------------------------------------------------------------------------
   -- Write data handshake
   ------------------------------------------------------------------------------
-  process (s_axi_aclk)
+  process (s_axi_aclk, async_reset) is
   begin
-    if rising_edge(s_axi_aclk) then
-      if s_axi_aresetn = '0' then
+    if ((async_reset = ASYNC_RESET_ACTIVE) and (USE_ASYNC_RESET = true)) then
         axi_wready <= '0';
+    elsif rising_edge(s_axi_aclk) then
+        if ((sync_reset = SYNC_RESET_ACTIVE) and (USE_SYNC_RESET = true)) then
+            axi_wready <= '0';
       else
         if (axi_wready = '0') and (s_axi_wvalid = '1') and (s_axi_awvalid = '1') and (aw_en = '1') then
           axi_wready <= '1';
@@ -128,11 +142,13 @@ begin
   ------------------------------------------------------------------------------
   -- Write to GPIO_OUT at address 0x0
   ------------------------------------------------------------------------------
-  process (s_axi_aclk)
+  process (s_axi_aclk, async_reset) is
   begin
-    if rising_edge(s_axi_aclk) then
-      if s_axi_aresetn = '0' then
+    if ((async_reset = ASYNC_RESET_ACTIVE) and (USE_ASYNC_RESET = true)) then
         reg_gpio_out <= (others => '0');
+    elsif rising_edge(s_axi_aclk) then
+        if ((sync_reset = SYNC_RESET_ACTIVE) and (USE_SYNC_RESET = true)) then
+            reg_gpio_out <= (others => '0');
       else
         if (axi_awready = '1' and s_axi_awvalid = '1' and
             axi_wready  = '1' and s_axi_wvalid  = '1') then
@@ -160,12 +176,15 @@ begin
   ------------------------------------------------------------------------------
   -- Write response channel
   ------------------------------------------------------------------------------
-  process (s_axi_aclk)
+  process (s_axi_aclk, async_reset) is
   begin
-    if rising_edge(s_axi_aclk) then
-      if s_axi_aresetn = '0' then
+    if ((async_reset = ASYNC_RESET_ACTIVE) and (USE_ASYNC_RESET = true)) then
         axi_bvalid <= '0';
         axi_bresp  <= (others => '0');
+    elsif rising_edge(s_axi_aclk) then
+        if ((sync_reset = SYNC_RESET_ACTIVE) and (USE_SYNC_RESET = true)) then
+            axi_bvalid <= '0';
+            axi_bresp  <= (others => '0');
       else
         if (axi_awready = '1' and s_axi_awvalid = '1' and
             axi_wready  = '1' and s_axi_wvalid  = '1' and
@@ -182,12 +201,15 @@ begin
   ------------------------------------------------------------------------------
   -- Read address handshake
   ------------------------------------------------------------------------------
-  process (s_axi_aclk)
+  process (s_axi_aclk, async_reset) is
   begin
-    if rising_edge(s_axi_aclk) then
-      if s_axi_aresetn = '0' then
+    if ((async_reset = ASYNC_RESET_ACTIVE) and (USE_ASYNC_RESET = true)) then
         axi_arready <= '0';
         araddr_reg  <= (others => '0');
+    elsif rising_edge(s_axi_aclk) then
+        if ((sync_reset = SYNC_RESET_ACTIVE) and (USE_SYNC_RESET = true)) then
+            axi_arready <= '0';
+            araddr_reg  <= (others => '0');
       else
         if (axi_arready = '0' and s_axi_arvalid = '1') then
           axi_arready <= '1';
@@ -202,13 +224,17 @@ begin
   ------------------------------------------------------------------------------
   -- Read data channel
   ------------------------------------------------------------------------------
-  process (s_axi_aclk)
+  process (s_axi_aclk, async_reset) is
   begin
-    if rising_edge(s_axi_aclk) then
-      if s_axi_aresetn = '0' then
+    if ((async_reset = ASYNC_RESET_ACTIVE) and (USE_ASYNC_RESET = true)) then
         axi_rvalid <= '0';
         axi_rresp  <= (others => '0');
         axi_rdata  <= (others => '0');
+    elsif rising_edge(s_axi_aclk) then
+        if ((sync_reset = SYNC_RESET_ACTIVE) and (USE_SYNC_RESET = true)) then
+            axi_rvalid <= '0';
+            axi_rresp  <= (others => '0');
+            axi_rdata  <= (others => '0');
       else
         if (axi_arready = '1' and s_axi_arvalid = '1' and axi_rvalid = '0') then
           -- Address decode for read

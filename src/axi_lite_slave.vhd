@@ -8,10 +8,10 @@ use work.axi_lite_slave_pkg.all;
 
 entity axi_lite_slave is
     generic (
-        use_async_reset    : boolean   := TRUE;
-        use_sync_reset     : boolean   := TRUE;
-        async_reset_active : std_logic := '1';
-        sync_reset_active  : std_logic := '1';
+        USE_ASYNC_RESET    : boolean   := TRUE;
+        USE_SYNC_RESET     : boolean   := TRUE;
+        ASYNC_RESET_ACTIVE : std_logic := '1';
+        SYNC_RESET_ACTIVE  : std_logic := '1';
         nb_registers       : natural   := 16
     );
     port (
@@ -70,7 +70,7 @@ begin
     process (clock, async_reset) is
     begin
 
-        if ((async_reset = async_reset_active) and (use_async_reset = true)) then
+        if ((async_reset = ASYNC_RESET_ACTIVE) and (USE_ASYNC_RESET = true)) then
             s_axi_awready       <= '0';
             s_axi_wready_t      <= '0';
             s_axi_bvalid_t      <= '0';
@@ -88,7 +88,7 @@ begin
             register_write      <= (others => (others => '0'));
             register_write_en   <= (others => '0');
         elsif rising_edge(clock) then
-            if ((sync_reset = sync_reset_active) and (use_sync_reset = true)) then
+            if ((sync_reset = SYNC_RESET_ACTIVE) and (USE_SYNC_RESET = true)) then
                 s_axi_awready       <= '0';
                 s_axi_wready_t      <= '0';
                 s_axi_bvalid_t      <= '0';

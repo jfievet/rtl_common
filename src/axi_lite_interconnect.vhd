@@ -7,10 +7,10 @@ use work.axi_lite_interconnect_pkg.all;
 
 entity axi_lite_interconnect is
     generic (
-        use_async_reset    : boolean   := TRUE;
-        use_sync_reset     : boolean   := TRUE;
-        async_reset_active : std_logic := '1';
-        sync_reset_active  : std_logic := '1';
+        USE_ASYNC_RESET    : boolean   := TRUE;
+        USE_SYNC_RESET     : boolean   := TRUE;
+        ASYNC_RESET_ACTIVE : std_logic := '1';
+        SYNC_RESET_ACTIVE  : std_logic := '1';
         nb_slave_ports     : integer   := 32;
         nb_master_ports    : integer   := 32;
         addr_start         : axi_32b_bus_type;
@@ -187,7 +187,7 @@ begin
     scheduling_pr : process (clock, async_reset) is
     begin
 
-        if ((async_reset = async_reset_active) and (use_async_reset = true)) then
+        if ((async_reset = ASYNC_RESET_ACTIVE) and (USE_ASYNC_RESET = true)) then
             s_axi_bvalid_i      <= (others => '0');
             s_axi_bresp_i       <= (others => (others => '0'));
             s_axi_rvalid_i      <= (others => '0');
@@ -207,8 +207,9 @@ begin
             front_axi_arvalid   <= '0';
             front_axi_araddr    <= (others => '0');
             front_axi_rready    <= '0';
+            schedule_sm <= idle;
         elsif rising_edge(clock) then
-            if ((sync_reset = sync_reset_active) and (use_sync_reset = true)) then
+            if ((sync_reset = SYNC_RESET_ACTIVE) and (USE_SYNC_RESET = true)) then
                 s_axi_bvalid_i      <= (others => '0');
                 s_axi_bresp_i       <= (others => (others => '0'));
                 s_axi_rvalid_i      <= (others => '0');
@@ -228,6 +229,7 @@ begin
                 front_axi_arvalid   <= '0';
                 front_axi_araddr    <= (others => '0');
                 front_axi_rready    <= '0';
+                schedule_sm <= idle;
             else
 
                 for k in 0 to nb_slave_ports - 1 loop
@@ -356,10 +358,10 @@ begin
 
     axi_interconnect_single_first_inst : entity work.axi_interconnect_single
         generic map(
-            use_async_reset    => use_async_reset,
-            use_sync_reset     => use_sync_reset,
-            async_reset_active => async_reset_active,
-            sync_reset_active  => sync_reset_active,
+            USE_ASYNC_RESET    => USE_ASYNC_RESET,
+            USE_SYNC_RESET     => USE_SYNC_RESET,
+            ASYNC_RESET_ACTIVE => ASYNC_RESET_ACTIVE,
+            SYNC_RESET_ACTIVE  => SYNC_RESET_ACTIVE,
             addr_start         => addr_start(0),
             addr_end           => addr_end(0),
             addr_offset        => addr_start(0)
@@ -367,8 +369,9 @@ begin
         port map
         (
             clock           => clock,
-            async_reset     => async_reset,
-            sync_reset      => sync_reset,
+            async_reset => async_reset,
+            sync_reset => sync_reset,
+
             s_axi_awvalid   => front_axi_awvalid,
             s_axi_awready   => front_axi_awready,
             s_axi_awaddr    => front_axi_awaddr,
@@ -426,10 +429,10 @@ begin
 
         axi_interconnect_single_1_to_end_inst : entity work.axi_interconnect_single
             generic map(
-                use_async_reset    => use_async_reset,
-                use_sync_reset     => use_sync_reset,
-                async_reset_active => async_reset_active,
-                sync_reset_active  => sync_reset_active,
+                USE_ASYNC_RESET    => USE_ASYNC_RESET,
+                USE_SYNC_RESET     => USE_SYNC_RESET,
+                ASYNC_RESET_ACTIVE => ASYNC_RESET_ACTIVE,
+                SYNC_RESET_ACTIVE  => SYNC_RESET_ACTIVE,
                 addr_start         => addr_start(k),
                 addr_end           => addr_end(k),
                 addr_offset        => addr_start(k)
@@ -437,8 +440,9 @@ begin
             port map
             (
                 clock           => clock,
-                async_reset     => async_reset,
-                sync_reset      => sync_reset,
+                async_reset => async_reset,
+                sync_reset => sync_reset,
+
                 s_axi_awvalid   => intermediate_axi_awvalid(k - 1),
                 s_axi_awready   => intermediate_axi_awready(k - 1),
                 s_axi_awaddr    => intermediate_axi_awaddr(k - 1),

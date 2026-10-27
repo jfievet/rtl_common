@@ -8,6 +8,10 @@ use work.rams_sp_wf_pkg.all;
 
 entity axi_ram is
     generic (
+        USE_ASYNC_RESET    : boolean   := TRUE;
+        USE_SYNC_RESET     : boolean   := TRUE;
+        ASYNC_RESET_ACTIVE : std_logic := '1';
+        SYNC_RESET_ACTIVE  : std_logic := '1';
         G_DATA_WIDTH : positive := 32;
         G_ADDR_WIDTH : positive := 10;
         G_DEPTH      : positive := 1024;
@@ -15,7 +19,8 @@ entity axi_ram is
     );
     port (
         clk            : in  std_logic;                          -- Added clock
-        resetn         : in  std_logic;                          -- Added active-low reset
+        async_reset : in std_logic;
+        sync_reset  : in std_logic;                          -- Added active-low reset
         mem_axi_awvalid : in  std_logic;
         mem_axi_awready : out std_logic;
         mem_axi_awaddr  : in  std_logic_vector(G_ADDR_WIDTH-1 downto 0);
@@ -165,10 +170,13 @@ begin
 
     end generate;
 
-    process(clk)
+    process (clk, async_reset) is
     begin
-        if rising_edge(clk) then
-            if resetn = '0' then
+        if ((async_reset = ASYNC_RESET_ACTIVE) and (USE_ASYNC_RESET = true)) then
+            bvalid_s <= '0';
+            rvalid_s <= '0';
+        elsif rising_edge(clk) then
+            if ((sync_reset = SYNC_RESET_ACTIVE) and (USE_SYNC_RESET = true)) then
                 bvalid_s <= '0';
                 rvalid_s <= '0';
             else

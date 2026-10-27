@@ -4,10 +4,10 @@ use ieee.numeric_std.all;
 
 entity crc_checksum is
     generic (
-        use_async_reset    : boolean   := TRUE;
-        use_sync_reset     : boolean   := TRUE;
-        async_reset_active : std_logic := '1';
-        sync_reset_active  : std_logic := '1';
+        USE_ASYNC_RESET    : boolean   := TRUE;
+        USE_SYNC_RESET     : boolean   := TRUE;
+        ASYNC_RESET_ACTIVE : std_logic := '1';
+        SYNC_RESET_ACTIVE  : std_logic := '1';
         poly_size          : integer   := 32;
         poly_value         : std_logic_vector(31 downto 0);
         data_in_width      : integer := 8
@@ -39,12 +39,12 @@ begin
 
     begin
 
-        if ((async_reset = async_reset_active) and (use_async_reset = true)) then
+        if ((async_reset = ASYNC_RESET_ACTIVE) and (USE_ASYNC_RESET = true)) then
             v_checksum := (others  => '0');
             checksum    <= (others => '0');
             data_out_en <= '0';
         elsif rising_edge(clock) then
-            if ((sync_reset = sync_reset_active) and (use_sync_reset = true)) then
+            if ((sync_reset = SYNC_RESET_ACTIVE) and (USE_SYNC_RESET = true)) then
                 v_checksum := (others  => '0');
                 checksum    <= (others => '0');
                 data_out_en <= '0';

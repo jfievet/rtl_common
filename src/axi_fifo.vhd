@@ -4,12 +4,19 @@ use ieee.numeric_std.all;
 
 entity axi_fifo is
     generic (
+        USE_ASYNC_RESET    : boolean   := TRUE;
+        USE_SYNC_RESET     : boolean   := TRUE;
+        ASYNC_RESET_ACTIVE : std_logic := '1';
+        SYNC_RESET_ACTIVE  : std_logic := '1';
         DATA_WIDTH : positive := 32;
         DEPTH      : positive := 16
     );
     port (
         clk           : in  std_logic;
-        resetn        : in  std_logic;
+        async_reset : in std_logic;
+        -- Internal software clear remains synchronous.
+        soft_reset : in std_logic := '0';
+        sync_reset  : in std_logic;
 
         s_axis_tdata  : in  std_logic_vector(DATA_WIDTH-1 downto 0);
         s_axis_tvalid : in  std_logic;
@@ -103,12 +110,24 @@ begin
              (output_valid = '0' or output_transfer = '1')
         else '0';
 
-    process(clk)
+    process (clk, async_reset) is
         variable next_wr_ptr : ptr_t;
         variable next_rd_ptr : ptr_t;
     begin
-        if rising_edge(clk) then
-            if resetn = '0' then
+        if ((async_reset = ASYNC_RESET_ACTIVE) and (USE_ASYNC_RESET = true)) then
+            wr_ptr       <= 0;
+            rd_ptr       <= 0;
+            ram_level    <= (others => '0');
+            output_data  <= (others => '0');
+            output_valid <= '0';
+        elsif rising_edge(clk) then
+            if ((sync_reset = SYNC_RESET_ACTIVE) and (USE_SYNC_RESET = true)) then
+                wr_ptr       <= 0;
+                rd_ptr       <= 0;
+                ram_level    <= (others => '0');
+                output_data  <= (others => '0');
+                output_valid <= '0';
+            elsif soft_reset = '1' then
                 wr_ptr       <= 0;
                 rd_ptr       <= 0;
                 ram_level    <= (others => '0');

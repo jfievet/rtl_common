@@ -4,15 +4,17 @@ library ieee;
 
 entity uart is
   generic (
-    use_async_reset    : boolean   := TRUE;
-    use_sync_reset     : boolean   := TRUE;
-    async_reset_active : std_logic := '1';
-    sync_reset_active  : std_logic := '1';
+    USE_ASYNC_RESET    : boolean   := TRUE;
+    USE_SYNC_RESET     : boolean   := TRUE;
+    ASYNC_RESET_ACTIVE : std_logic := '1';
+    SYNC_RESET_ACTIVE  : std_logic := '1';
     uart_clock_divider : integer   := 108 -- round(clock / uart_bitrate*8)  ie. for 100e6/115200/8=108
   );
   port (
     clock       : in    std_logic;
     async_reset : in    std_logic;
+        -- Internal software clear remains synchronous.
+        soft_reset : in std_logic := '0';
     sync_reset  : in    std_logic;
 
     s_axis_tdata  : in    std_logic_vector(7 downto 0);
@@ -80,13 +82,22 @@ begin
   uart_clock_pr : process (clock, async_reset) is
   begin
 
-    if ((async_reset = async_reset_active) and (use_async_reset = true)) then
-      uart_clock_tx_cnt <= (others => '0');
-      uart_clock_tx_en  <= '0';
-    elsif rising_edge(clock) then
-      if ((sync_reset = sync_reset_active) and (use_sync_reset = true)) then
+    if ((async_reset = ASYNC_RESET_ACTIVE) and (USE_ASYNC_RESET = true)) then
         uart_clock_tx_cnt <= (others => '0');
         uart_clock_tx_en  <= '0';
+        uart_clock_rx_cnt <= (others => '0');
+        uart_clock_rx_en <= '0';
+    elsif rising_edge(clock) then
+        if ((sync_reset = SYNC_RESET_ACTIVE) and (USE_SYNC_RESET = true)) then
+            uart_clock_tx_cnt <= (others => '0');
+            uart_clock_tx_en  <= '0';
+            uart_clock_rx_cnt <= (others => '0');
+            uart_clock_rx_en <= '0';
+        elsif soft_reset = '1' then
+            uart_clock_tx_cnt <= (others => '0');
+            uart_clock_tx_en  <= '0';
+            uart_clock_rx_cnt <= (others => '0');
+            uart_clock_rx_en <= '0';
       else
         if (uart_tx_sm = sm_tx_idle) then
           uart_clock_tx_cnt <= (others => '0');
@@ -121,13 +132,25 @@ begin
   uart_tx_pr : process (clock, async_reset) is
   begin
 
-    if ((async_reset = async_reset_active) and (use_async_reset = true)) then
-      txd         <= '1';
-      stored_data <= (others => '0');
-    elsif rising_edge(clock) then
-      if ((sync_reset = sync_reset_active) and (use_sync_reset = true)) then
+    if ((async_reset = ASYNC_RESET_ACTIVE) and (USE_ASYNC_RESET = true)) then
         txd         <= '1';
         stored_data <= (others => '0');
+        uart_tx_sm <= sm_tx_idle;
+        uart_clock_tx_en_pulse_cnt <= (others => '0');
+        s_axis_tready_t <= '0';
+    elsif rising_edge(clock) then
+        if ((sync_reset = SYNC_RESET_ACTIVE) and (USE_SYNC_RESET = true)) then
+            txd         <= '1';
+            stored_data <= (others => '0');
+            uart_tx_sm <= sm_tx_idle;
+            uart_clock_tx_en_pulse_cnt <= (others => '0');
+            s_axis_tready_t <= '0';
+        elsif soft_reset = '1' then
+            txd         <= '1';
+            stored_data <= (others => '0');
+            uart_tx_sm <= sm_tx_idle;
+            uart_clock_tx_en_pulse_cnt <= (others => '0');
+            s_axis_tready_t <= '0';
       else
         -- tx sm
         case uart_tx_sm is
@@ -233,13 +256,22 @@ begin
   uart_rx_pr : process (clock, async_reset) is
   begin
 
-    if ((async_reset = async_reset_active) and (use_async_reset = true)) then
-      m_axis_tvalid_t <= '0';
-      m_axis_tdata    <= (others => '0');
-    elsif rising_edge(clock) then
-      if ((sync_reset = sync_reset_active) and (use_sync_reset = true)) then
+    if ((async_reset = ASYNC_RESET_ACTIVE) and (USE_ASYNC_RESET = true)) then
         m_axis_tvalid_t <= '0';
         m_axis_tdata    <= (others => '0');
+        uart_rx_sm <= sm_rx_idle;
+        uart_clock_rx_en_pulse_cnt <= (others => '0');
+    elsif rising_edge(clock) then
+        if ((sync_reset = SYNC_RESET_ACTIVE) and (USE_SYNC_RESET = true)) then
+            m_axis_tvalid_t <= '0';
+            m_axis_tdata    <= (others => '0');
+            uart_rx_sm <= sm_rx_idle;
+            uart_clock_rx_en_pulse_cnt <= (others => '0');
+        elsif soft_reset = '1' then
+            m_axis_tvalid_t <= '0';
+            m_axis_tdata    <= (others => '0');
+            uart_rx_sm <= sm_rx_idle;
+            uart_clock_rx_en_pulse_cnt <= (others => '0');
       else
         -- rx sm
         case uart_rx_sm is

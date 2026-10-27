@@ -4,6 +4,10 @@ use ieee.numeric_std.all;
 
 entity axi_uart is
     generic (
+        USE_ASYNC_RESET    : boolean   := TRUE;
+        USE_SYNC_RESET     : boolean   := TRUE;
+        ASYNC_RESET_ACTIVE : std_logic := '1';
+        SYNC_RESET_ACTIVE  : std_logic := '1';
         G_SYS_FREQ : natural := 50_000_000;
         G_BAUDRATE : natural := 115200;
         G_TX_DEPTH : natural := 16;
@@ -12,7 +16,8 @@ entity axi_uart is
     );
     port (
         ACLK    : in std_logic;
-        ARESETn : in std_logic;
+        async_reset : in std_logic;
+        sync_reset  : in std_logic;
         AWADDR  : in std_logic_vector(31 downto 0);
         AWVALID : in std_logic;
         AWREADY : out std_logic;
@@ -94,7 +99,9 @@ begin
     assert G_SYS_FREQ > 0 and G_BAUDRATE > 0 and C_UART_DIV >= 1
         report "Invalid UART frequency / baudrate" severity failure;
 
-    core_resetn <= ARESETn and not fifo_reset_pulse;
+    core_resetn <= '0' when (USE_ASYNC_RESET and async_reset = ASYNC_RESET_ACTIVE) or
+                           (USE_SYNC_RESET and sync_reset = SYNC_RESET_ACTIVE) or
+                           fifo_reset_pulse = '1' else '1';
     AWREADY <= awready_r;
     WREADY <= wready_r;
     BVALID <= bvalid_r;
@@ -105,7 +112,7 @@ begin
     RDATA <= rdata_r;
 
     -- One synchronous controller for the AXI-Lite channels and TX FIFO/UART.
-    process(ACLK)
+    process (ACLK, async_reset) is
         variable have_aw : boolean;
         variable have_w : boolean;
         variable addr_v : std_logic_vector(31 downto 0);
@@ -113,8 +120,26 @@ begin
         variable strb_v : std_logic_vector(3 downto 0);
         variable read_v : std_logic_vector(31 downto 0);
     begin
-        if rising_edge(ACLK) then
-            if core_resetn = '0' then
+        if ((async_reset = ASYNC_RESET_ACTIVE) and (USE_ASYNC_RESET = true)) then
+            wr_state <= WR_COLLECT;
+            rd_state <= RD_IDLE;
+            aw_seen <= '0';
+            w_seen <= '0';
+            awready_r <= '0';
+            wready_r <= '0';
+            bvalid_r <= '0';
+            arready_r <= '0';
+            rvalid_r <= '0';
+            rdata_r <= (others => '0');
+            tx_fifo_wr_en <= '0';
+            tx_fifo_wr_data <= (others => '0');
+            rx_fifo_rd_ready <= '0';
+            fifo_reset_pulse <= '0';
+            awaddr_hold <= (others => '0');
+            wdata_hold <= (others => '0');
+            wstrb_hold <= (others => '0');
+        elsif rising_edge(ACLK) then
+            if ((sync_reset = SYNC_RESET_ACTIVE) and (USE_SYNC_RESET = true)) then
                 wr_state <= WR_COLLECT;
                 rd_state <= RD_IDLE;
                 aw_seen <= '0';
@@ -129,6 +154,27 @@ begin
                 tx_fifo_wr_data <= (others => '0');
                 rx_fifo_rd_ready <= '0';
                 fifo_reset_pulse <= '0';
+                awaddr_hold <= (others => '0');
+                wdata_hold <= (others => '0');
+                wstrb_hold <= (others => '0');
+            elsif fifo_reset_pulse = '1' then
+                wr_state <= WR_COLLECT;
+                rd_state <= RD_IDLE;
+                aw_seen <= '0';
+                w_seen <= '0';
+                awready_r <= '0';
+                wready_r <= '0';
+                bvalid_r <= '0';
+                arready_r <= '0';
+                rvalid_r <= '0';
+                rdata_r <= (others => '0');
+                tx_fifo_wr_en <= '0';
+                tx_fifo_wr_data <= (others => '0');
+                rx_fifo_rd_ready <= '0';
+                fifo_reset_pulse <= '0';
+                awaddr_hold <= (others => '0');
+                wdata_hold <= (others => '0');
+                wstrb_hold <= (others => '0');
             else
                 tx_fifo_wr_en <= '0';
                 rx_fifo_rd_ready <= '0';
@@ -228,9 +274,17 @@ begin
     tx_fifo_rd_ready <= tx_axis_ready;
 
     tx_fifo_inst : entity work.axi_fifo
-        generic map (DATA_WIDTH => 8, DEPTH => G_TX_DEPTH)
+        generic map (
+            USE_ASYNC_RESET    => USE_ASYNC_RESET,
+            USE_SYNC_RESET     => USE_SYNC_RESET,
+            ASYNC_RESET_ACTIVE => ASYNC_RESET_ACTIVE,
+            SYNC_RESET_ACTIVE  => SYNC_RESET_ACTIVE,
+            DATA_WIDTH => 8, DEPTH => G_TX_DEPTH)
         port map (
-            clk => ACLK, resetn => core_resetn,
+            soft_reset => fifo_reset_pulse,
+            clk => ACLK,
+            async_reset => async_reset,
+            sync_reset => sync_reset,
             s_axis_tdata => tx_fifo_wr_data,
             s_axis_tvalid => tx_fifo_wr_en,
             s_axis_tready => tx_fifo_wr_ready,
@@ -245,9 +299,17 @@ begin
     -- RX UART -> FIFO uses AXI-Stream handshake.
     -- FIFO -> AXI-Lite read checks m_axis_tvalid before requesting a pop.
     rx_fifo_inst : entity work.axi_fifo
-        generic map (DATA_WIDTH => 8, DEPTH => G_RX_DEPTH)
+        generic map (
+            USE_ASYNC_RESET    => USE_ASYNC_RESET,
+            USE_SYNC_RESET     => USE_SYNC_RESET,
+            ASYNC_RESET_ACTIVE => ASYNC_RESET_ACTIVE,
+            SYNC_RESET_ACTIVE  => SYNC_RESET_ACTIVE,
+            DATA_WIDTH => 8, DEPTH => G_RX_DEPTH)
         port map (
-            clk => ACLK, resetn => core_resetn,
+            soft_reset => fifo_reset_pulse,
+            clk => ACLK,
+            async_reset => async_reset,
+            sync_reset => sync_reset,
             s_axis_tdata => rx_fifo_wr_data,
             s_axis_tvalid => rx_axis_valid,
             s_axis_tready => rx_axis_ready,
@@ -261,15 +323,18 @@ begin
 
     uart_inst : entity work.uart
         generic map (
-            use_async_reset => false,
-            use_sync_reset => true,
-            sync_reset_active => '1',
+            USE_ASYNC_RESET    => USE_ASYNC_RESET,
+            USE_SYNC_RESET     => USE_SYNC_RESET,
+            ASYNC_RESET_ACTIVE => ASYNC_RESET_ACTIVE,
+            SYNC_RESET_ACTIVE  => SYNC_RESET_ACTIVE,
             uart_clock_divider => C_UART_DIV
         )
         port map (
+            soft_reset => fifo_reset_pulse,
             clock => ACLK,
-            async_reset => '0',
-            sync_reset => not core_resetn,
+            async_reset => async_reset,
+            sync_reset => sync_reset,
+
             s_axis_tdata => tx_axis_data,
             s_axis_tvalid => tx_axis_valid,
             s_axis_tready => tx_axis_ready,

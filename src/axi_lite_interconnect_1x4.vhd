@@ -4,6 +4,10 @@ use ieee.numeric_std.all;
 
 entity axi_lite_interconnect_1x4 is
     generic (
+        USE_ASYNC_RESET    : boolean   := TRUE;
+        USE_SYNC_RESET     : boolean   := TRUE;
+        ASYNC_RESET_ACTIVE : std_logic := '1';
+        SYNC_RESET_ACTIVE  : std_logic := '1';
         G_ADDR_WIDTH  : integer := 32;
         G_DATA_WIDTH  : integer := 32;
         G_STRB_WIDTH  : integer := 4;
@@ -18,7 +22,8 @@ entity axi_lite_interconnect_1x4 is
     );
     port (
         clk    : in  std_logic;
-        resetn : in  std_logic;
+        async_reset : in std_logic;
+        sync_reset  : in std_logic;
 
         -- Master AXI4-Lite interface (input from system master)
         M_AWADDR  : in  std_logic_vector(G_ADDR_WIDTH-1 downto 0);
@@ -166,13 +171,47 @@ signal m_rvalid_int             : std_logic;
 
 begin
 
-process(clk)
+process (clk, async_reset) is
 begin
         
-    if rising_edge(clk) then
+    if ((async_reset = ASYNC_RESET_ACTIVE) and (USE_ASYNC_RESET = true)) then
+        wr_new_addr   <= (others => '0');
+        rd_new_addr   <= (others => '0');
+        store_data    <= (others => '0');
+        store_strobe  <= (others => '0');
+        slave_sel     <= (others => '0');
+        S0_WVALID     <= '0';
+        S1_WVALID     <= '0';
+        S2_WVALID     <= '0';
+        S3_WVALID     <= '0';
 
-        if resetn='0' then
-
+        main_sm         <= C_SM_IDLE;
+        m_wready_int    <= '1';
+        m_awready_int   <= '1';
+        m_arready_int   <= '1';
+        s0_awvalid_int  <= '0';
+        s1_awvalid_int  <= '0';
+        s2_awvalid_int  <= '0';
+        s3_awvalid_int  <= '0';
+        s0_bready_int   <= '0';
+        s1_bready_int   <= '0';
+        s2_bready_int   <= '0';
+        s3_bready_int   <= '0';
+        m_bvalid_int    <= '0';
+        s0_arvalid_int  <= '0';
+        s1_arvalid_int  <= '0';
+        s2_arvalid_int  <= '0';
+        s3_arvalid_int  <= '0';
+        s0_rready_int   <= '0';
+        s1_rready_int   <= '0';
+        s2_rready_int   <= '0';
+        s3_rready_int   <= '0';
+        m_rvalid_int    <= '0';
+        M_BRESP <= (others => '0');
+        M_RDATA <= (others => '0');
+        M_RRESP <= (others => '0');
+    elsif rising_edge(clk) then
+        if ((sync_reset = SYNC_RESET_ACTIVE) and (USE_SYNC_RESET = true)) then
             wr_new_addr   <= (others => '0');
             rd_new_addr   <= (others => '0');
             store_data    <= (others => '0');
@@ -205,7 +244,9 @@ begin
             s2_rready_int   <= '0';
             s3_rready_int   <= '0';
             m_rvalid_int    <= '0';
-
+            M_BRESP <= (others => '0');
+            M_RDATA <= (others => '0');
+            M_RRESP <= (others => '0');
         else
             
             -- Detect a write (Adress and data must be written at the same time)
