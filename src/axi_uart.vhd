@@ -61,34 +61,34 @@ architecture rtl of axi_uart is
     signal wr_state : wr_state_t := WR_COLLECT;
     signal rd_state : rd_state_t := RD_IDLE;
 
-    signal aw_seen, w_seen : std_logic := '0';
-    signal awaddr_hold : std_logic_vector(31 downto 0) := (others => '0');
-    signal wdata_hold : std_logic_vector(31 downto 0) := (others => '0');
-    signal wstrb_hold : std_logic_vector(3 downto 0) := (others => '0');
-    signal awready_r, wready_r, bvalid_r : std_logic := '0';
-    signal arready_r, rvalid_r : std_logic := '0';
-    signal rdata_r : std_logic_vector(31 downto 0) := (others => '0');
+    signal aw_seen, w_seen : std_logic;
+    signal awaddr_hold : std_logic_vector(31 downto 0);
+    signal wdata_hold : std_logic_vector(31 downto 0);
+    signal wstrb_hold : std_logic_vector(3 downto 0);
+    signal awready_r, wready_r, bvalid_r : std_logic;
+    signal arready_r, rvalid_r : std_logic;
+    signal rdata_r : std_logic_vector(31 downto 0);
 
-    signal tx_fifo_wr_en : std_logic := '0';
-    signal tx_fifo_wr_data : std_logic_vector(7 downto 0) := (others => '0');
+    signal tx_fifo_wr_en : std_logic;
+    signal tx_fifo_wr_data : std_logic_vector(7 downto 0);
     signal tx_fifo_rd_data : std_logic_vector(7 downto 0);
-    signal tx_fifo_rd_ready : std_logic := '0';
+    signal tx_fifo_rd_ready : std_logic;
     signal tx_fifo_rd_valid : std_logic;
     signal tx_fifo_empty, tx_fifo_full : std_logic;
     signal tx_fifo_wr_ready : std_logic;
     signal tx_fifo_level_vec : std_logic_vector(C_TX_LW-1 downto 0);
-    signal tx_axis_data : std_logic_vector(7 downto 0) := (others => '0');
-    signal tx_axis_valid : std_logic := '0';
+    signal tx_axis_data : std_logic_vector(7 downto 0);
+    signal tx_axis_valid : std_logic;
     signal tx_axis_ready : std_logic;
 
     signal rx_fifo_wr_data : std_logic_vector(7 downto 0);
     signal rx_fifo_rd_data : std_logic_vector(7 downto 0);
-    signal rx_fifo_rd_ready : std_logic := '0';
+    signal rx_fifo_rd_ready : std_logic;
     signal rx_fifo_empty, rx_fifo_full : std_logic;
     signal rx_fifo_rd_valid : std_logic;
     signal rx_fifo_level_vec : std_logic_vector(C_RX_LW-1 downto 0);
     signal rx_axis_valid, rx_axis_ready : std_logic;
-    signal fifo_reset_pulse : std_logic := '0';
+    signal fifo_reset_pulse : std_logic;
     signal core_resetn : std_logic;
 begin
     assert G_SYS_FREQ > 0 and G_BAUDRATE > 0 and C_UART_DIV >= 1

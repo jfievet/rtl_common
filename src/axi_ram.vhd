@@ -51,9 +51,9 @@ architecture rtl of axi_ram is
 
     signal bank_sel_wr  : integer range 0 to NUM_BANKS-1;
     signal bank_sel_rd  : integer range 0 to NUM_BANKS-1;
-    signal bvalid_s  : std_logic := '0';
-    signal rvalid_s  : std_logic := '0';
-    signal rdata_s   : std_logic_vector(G_DATA_WIDTH-1 downto 0) := (others => '0');
+    signal bvalid_s  : std_logic;
+    signal rvalid_s  : std_logic;
+    signal rdata_s   : std_logic_vector(G_DATA_WIDTH-1 downto 0);
 
     -- Xilinx Address and data signals
     signal ram_addr : std_logic_vector(G_ADDR_WIDTH-1 downto 0);
