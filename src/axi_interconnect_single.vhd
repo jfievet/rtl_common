@@ -131,7 +131,8 @@ begin
     m_a_axi_rready  <= m_a_axi_rready_t;
     m_b_axi_rready  <= m_b_axi_rready_t;
     s_axi_rvalid    <= s_axi_rvalid_t;
-    m_a_axi_wvalid <= m_a_axi_wvalid_t;
+    m_a_axi_wvalid  <= m_a_axi_wvalid_t;
+    m_b_axi_wvalid  <= m_b_axi_wvalid_t;
 
     process (clock, async_reset) is
     begin
