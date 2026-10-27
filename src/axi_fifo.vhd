@@ -28,9 +28,12 @@ end entity;
 architecture rtl of axi_fifo is
 
     function clog2(n : positive) return natural is
-        variable result : natural := 0;
-        variable value  : natural := n - 1;
+        variable result : natural;
+        variable value  : natural;
     begin
+        result := 0;
+        value  := n - 1;
+
         while value > 0 loop
             result := result + 1;
             value  := value / 2;
@@ -51,16 +54,14 @@ architecture rtl of axi_fifo is
     attribute ramstyle : string;
     attribute ramstyle of ram : signal is "M9K";
 
-    signal wr_ptr : ptr_t := 0;
-    signal rd_ptr : ptr_t := 0;
+    signal wr_ptr : ptr_t;
+    signal rd_ptr : ptr_t;
 
     -- Number of words held in RAM, excluding output_data.
-    signal ram_level : unsigned(LEVEL_WIDTH-1 downto 0)
-                     := (others => '0');
+    signal ram_level : unsigned(LEVEL_WIDTH-1 downto 0);
 
-    signal output_data  : std_logic_vector(DATA_WIDTH-1 downto 0)
-                        := (others => '0');
-    signal output_valid : std_logic := '0';
+    signal output_data  : std_logic_vector(DATA_WIDTH-1 downto 0);
+    signal output_valid : std_logic;
 
     signal input_transfer  : std_logic;
     signal output_transfer : std_logic;
@@ -69,7 +70,6 @@ architecture rtl of axi_fifo is
     signal total_level : unsigned(LEVEL_WIDTH-1 downto 0);
 
     signal s_axis_tready_int : std_logic;
-
 begin
 
     s_axis_tready <= s_axis_tready_int;

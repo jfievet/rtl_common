@@ -41,11 +41,11 @@ end entity;
 
 architecture rtl of axi_slave_reg_bank is
 
-    signal reg_bank : reg_bank_t := (others => (others => '0'));
-    signal wr_en_vec : std_logic_vector(C_DEPTH-1 downto 0) := (others => '0');
-    signal bvalid_s  : std_logic := '0';
-    signal rvalid_s  : std_logic := '0';
-    signal rdata_s   : std_logic_vector(C_DATA_WIDTH-1 downto 0) := (others => '0');
+    signal reg_bank : reg_bank_t;
+    signal wr_en_vec : std_logic_vector(C_DEPTH-1 downto 0);
+    signal bvalid_s  : std_logic;
+    signal rvalid_s  : std_logic;
+    signal rdata_s   : std_logic_vector(C_DATA_WIDTH-1 downto 0);
 
 begin
 
