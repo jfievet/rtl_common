@@ -12,8 +12,8 @@ generic (
         USE_SYNC_RESET     : boolean   := TRUE;
         ASYNC_RESET_ACTIVE : std_logic := '1';
         SYNC_RESET_ACTIVE  : std_logic := '1';
-    G_ADDR_WIDTH : positive := 32;
-    G_DATA_WIDTH : positive := 32
+        G_ADDR_WIDTH : positive := 32;
+        G_DATA_WIDTH : positive := 32
 );
     port (
         clk                     : in  std_logic;                          -- Added clock
@@ -39,7 +39,8 @@ generic (
 
         register_bank_wr        : out reg_bank_t;
         register_bank_wr_en     : out std_logic_vector(C_DEPTH-1 downto 0);
-        register_bank_rd        : in reg_bank_t
+        register_bank_rd        : in reg_bank_t;
+        register_bank_rd_en     : out std_logic_vector(C_DEPTH-1 downto 0)
 
     );
 end entity;
@@ -62,6 +63,7 @@ begin
             reg_bank <= (others => (others => '0'));
             wr_en_vec <= (others => '0');
             rdata_s <= (others => '0');
+            register_bank_rd_en <= (others => '0');
         elsif rising_edge(clk) then
             if ((sync_reset = SYNC_RESET_ACTIVE) and (USE_SYNC_RESET = true)) then
                 bvalid_s <= '0';
@@ -69,6 +71,7 @@ begin
                 reg_bank <= (others => (others => '0'));
                 wr_en_vec <= (others => '0');
                 rdata_s <= (others => '0');
+                register_bank_rd_en <= (others => '0');
             else
                 wr_en_vec <= (others => '0'); -- Default: no write
 
@@ -82,13 +85,21 @@ begin
                 end if;
 
                 -- Read response logic
+                register_bank_rd_en <= (others => '0'); -- Default: no read
+
                 if (mem_axi_arvalid = '1' and rvalid_s = '0') then
-                    -- Use external register_bank_rd for read data
+                    -- Read register
                     rdata_s <= register_bank_rd(to_integer(unsigned(mem_axi_araddr(G_ADDR_WIDTH-1 downto 2))));
+
+                    -- Generate one-cycle read enable pulse
+                    register_bank_rd_en(to_integer(unsigned(mem_axi_araddr(G_ADDR_WIDTH-1 downto 2)))) <= '1';
+
                     rvalid_s <= '1';
+
                 elsif (rvalid_s = '1' and mem_axi_rready = '1') then
                     rvalid_s <= '0';
                 end if;
+
             end if;
         end if;
     end process;
