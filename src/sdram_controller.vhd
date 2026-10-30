@@ -228,6 +228,8 @@ begin
                     v.state := ST_WRITE_SECOND;
                 else
                     cmd_i <= C_READ;
+                    -- Read DQM has two-clock latency; unmask before data arrives.
+                    dqm_i <= "00";
                     v.delay_count := 1; -- CL=3: first capture at 3rd rising edge after READ
                     v.state := ST_READ_WAIT;
                 end if;
@@ -238,12 +240,15 @@ begin
                 v.delay_count := C_CLOSE - 1;
                 v.state := ST_CLOSE_WAIT;
             when ST_READ_WAIT =>
+                dqm_i <= "00";
                 if r.delay_count = 0 then v.state := ST_READ_FIRST;
                 else v.delay_count := r.delay_count - 1; end if;
             when ST_READ_FIRST =>
+                dqm_i <= "00";
                 v.read_data(15 downto 0) := dq_in_i;
                 v.state := ST_READ_SECOND;
             when ST_READ_SECOND =>
+                dqm_i <= "00";
                 v.read_data(31 downto 16) := dq_in_i;
                 v.delay_count := C_CLOSE - 1;
                 v.state := ST_CLOSE_WAIT;
