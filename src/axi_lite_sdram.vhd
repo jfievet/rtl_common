@@ -119,7 +119,20 @@ begin
     o_req_wdata   <= r.req_wdata;
     o_req_wstrb   <= r.req_wstrb;
 
-    process(all)
+    process(
+        r,
+        aw_take,
+        w_take,
+        ar_take,
+        s_axi_awaddr,
+        s_axi_wdata,
+        s_axi_wstrb,
+        s_axi_araddr,
+        i_rsp_valid,
+        i_rsp_rdata,
+        s_axi_bready,
+        s_axi_rready
+    )
         variable v : t_regs;
         variable addr_v : std_logic_vector(31 downto 0);
         variable data_v : std_logic_vector(31 downto 0);

@@ -121,7 +121,15 @@ begin
     ready_i       <= '1' when r.state = ST_IDLE else '0';
     o_ready       <= ready_i;
 
-    process(all)
+    process(
+        r,
+        i_req_valid,
+        i_req_write,
+        i_req_addr,
+        i_req_wdata,
+        i_req_wstrb,
+        dq_in_i
+    )
         variable v : t_regs;
         variable a : std_logic_vector(11 downto 0);
     begin
