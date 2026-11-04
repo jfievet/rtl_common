@@ -1,3 +1,7 @@
+-- Any potential baud rate limitations must be verified based on the clock frequency,
+-- the divider value, and the synthesis and timing results.
+-- uart_clock_divider must remain between 1 and 4096.
+
 library ieee;
   use ieee.std_logic_1164.all;
   use ieee.numeric_std.all;
@@ -36,39 +40,28 @@ architecture rtl of uart is
   type uart_tx_state_t is (
     sm_tx_idle,
     sm_tx_bit_start,
-    sm_tx_bit_0,
-    sm_tx_bit_1,
-    sm_tx_bit_2,
-    sm_tx_bit_3,
-    sm_tx_bit_4,
-    sm_tx_bit_5,
-    sm_tx_bit_6,
-    sm_tx_bit_7,
+    sm_tx_data,
     sm_tx_bit_stop
   );
 
   type uart_rx_state_t is (
     sm_rx_idle,
     sm_rx_bit_start,
-    sm_rx_bit_0,
-    sm_rx_bit_1,
-    sm_rx_bit_2,
-    sm_rx_bit_3,
-    sm_rx_bit_4,
-    sm_rx_bit_5,
-    sm_rx_bit_6,
-    sm_rx_bit_7,
+    sm_rx_data,
     sm_rx_bit_stop
   );
 
-  signal uart_clock_tx_cnt          : unsigned(31 downto 0);
+  signal uart_clock_tx_cnt          : unsigned(11 downto 0);
   signal uart_clock_tx_en           : std_logic;
-  signal uart_clock_tx_en_pulse_cnt : unsigned(31 downto 0);
-  signal uart_clock_rx_cnt          : unsigned(31 downto 0);
+  signal uart_clock_tx_en_pulse_cnt : unsigned(2 downto 0);
+  signal uart_clock_rx_cnt          : unsigned(11 downto 0);
   signal uart_clock_rx_en           : std_logic;
-  signal uart_clock_rx_en_pulse_cnt : unsigned(31 downto 0);
+  signal uart_clock_rx_en_pulse_cnt : unsigned(2 downto 0);
   signal uart_tx_sm                 : uart_tx_state_t := sm_tx_idle;
   signal uart_rx_sm                 : uart_rx_state_t := sm_rx_idle;
+
+  signal tx_bit_index : unsigned(2 downto 0);
+  signal rx_bit_index : unsigned(2 downto 0);
 
   signal stored_data     : std_logic_vector(7 downto 0);
   signal s_axis_tready_t : std_logic;
@@ -103,7 +96,7 @@ begin
           uart_clock_tx_cnt <= (others => '0');
           uart_clock_tx_en  <= '0';
         else
-          if (uart_clock_tx_cnt = to_unsigned(uart_clock_divider - 1, 32)) then
+          if (uart_clock_tx_cnt = to_unsigned(uart_clock_divider - 1, 12)) then
             uart_clock_tx_cnt <= (others => '0');
             uart_clock_tx_en  <= '1';
           else
@@ -116,7 +109,7 @@ begin
           uart_clock_rx_cnt <= (others => '0');
           uart_clock_rx_en  <= '0';
         else
-          if (uart_clock_rx_cnt = to_unsigned(uart_clock_divider - 1, 32)) then
+          if (uart_clock_rx_cnt = to_unsigned(uart_clock_divider - 1, 12)) then
             uart_clock_rx_cnt <= (others => '0');
             uart_clock_rx_en  <= '1';
           else
@@ -136,6 +129,7 @@ begin
         txd         <= '1';
         stored_data <= (others => '0');
         uart_tx_sm <= sm_tx_idle;
+        tx_bit_index <= (others => '0');
         uart_clock_tx_en_pulse_cnt <= (others => '0');
         s_axis_tready_t <= '0';
     elsif rising_edge(clock) then
@@ -143,12 +137,14 @@ begin
             txd         <= '1';
             stored_data <= (others => '0');
             uart_tx_sm <= sm_tx_idle;
+            tx_bit_index <= (others => '0');
             uart_clock_tx_en_pulse_cnt <= (others => '0');
             s_axis_tready_t <= '0';
         elsif soft_reset = '1' then
             txd         <= '1';
             stored_data <= (others => '0');
             uart_tx_sm <= sm_tx_idle;
+            tx_bit_index <= (others => '0');
             uart_clock_tx_en_pulse_cnt <= (others => '0');
             s_axis_tready_t <= '0';
       else
@@ -157,6 +153,7 @@ begin
 
           when sm_tx_idle =>
 
+            tx_bit_index <= (others => '0');
             uart_clock_tx_en_pulse_cnt <= (others => '0');
             if (s_axis_tvalid = '1' and s_axis_tready_t = '1') then
               s_axis_tready_t <= '0';
@@ -169,83 +166,39 @@ begin
           when sm_tx_bit_start =>
 
             txd <= '0';
-            if (uart_clock_tx_en = '1' and uart_clock_tx_en_pulse_cnt = to_unsigned(7, 32)) then
-              uart_tx_sm <= sm_tx_bit_0;
+            if (uart_clock_tx_en = '1' and uart_clock_tx_en_pulse_cnt = to_unsigned(7, 3)) then
+              uart_tx_sm <= sm_tx_data;
             end if;
 
-          when sm_tx_bit_0 =>
+          when sm_tx_data =>
 
-            txd <= stored_data(0);
-            if (uart_clock_tx_en = '1' and uart_clock_tx_en_pulse_cnt = to_unsigned(7, 32)) then
-              uart_tx_sm <= sm_tx_bit_1;
-            end if;
-
-          when sm_tx_bit_1 =>
-
-            txd <= stored_data(1);
-            if (uart_clock_tx_en = '1' and uart_clock_tx_en_pulse_cnt = to_unsigned(7, 32)) then
-              uart_tx_sm <= sm_tx_bit_2;
-            end if;
-
-          when sm_tx_bit_2 =>
-
-            txd <= stored_data(2);
-            if (uart_clock_tx_en = '1' and uart_clock_tx_en_pulse_cnt = to_unsigned(7, 32)) then
-              uart_tx_sm <= sm_tx_bit_3;
-            end if;
-
-          when sm_tx_bit_3 =>
-
-            txd <= stored_data(3);
-            if (uart_clock_tx_en = '1' and uart_clock_tx_en_pulse_cnt = to_unsigned(7, 32)) then
-              uart_tx_sm <= sm_tx_bit_4;
-            end if;
-
-          when sm_tx_bit_4 =>
-
-            txd <= stored_data(4);
-            if (uart_clock_tx_en = '1' and uart_clock_tx_en_pulse_cnt = to_unsigned(7, 32)) then
-              uart_tx_sm <= sm_tx_bit_5;
-            end if;
-
-          when sm_tx_bit_5 =>
-
-            txd <= stored_data(5);
-            if (uart_clock_tx_en = '1' and uart_clock_tx_en_pulse_cnt = to_unsigned(7, 32)) then
-              uart_tx_sm <= sm_tx_bit_6;
-            end if;
-
-          when sm_tx_bit_6 =>
-
-            txd <= stored_data(6);
-            if (uart_clock_tx_en = '1' and uart_clock_tx_en_pulse_cnt = to_unsigned(7, 32)) then
-              uart_tx_sm <= sm_tx_bit_7;
-            end if;
-
-          when sm_tx_bit_7 =>
-
-            txd <= stored_data(7);
-            if (uart_clock_tx_en = '1' and uart_clock_tx_en_pulse_cnt = to_unsigned(7, 32)) then
-              uart_tx_sm <= sm_tx_bit_stop;
+            txd <= stored_data(to_integer(tx_bit_index));
+            if (uart_clock_tx_en = '1' and uart_clock_tx_en_pulse_cnt = to_unsigned(7, 3)) then
+              if (tx_bit_index = to_unsigned(7, 3)) then
+                uart_tx_sm <= sm_tx_bit_stop;
+              else
+                tx_bit_index <= tx_bit_index + 1;
+              end if;
             end if;
 
           when sm_tx_bit_stop =>
 
             txd <= '1';
-            if (uart_clock_tx_en = '1' and uart_clock_tx_en_pulse_cnt = to_unsigned(7, 32)) then
+            if (uart_clock_tx_en = '1' and uart_clock_tx_en_pulse_cnt = to_unsigned(7, 3)) then
               uart_tx_sm <= sm_tx_idle;
+              tx_bit_index <= (others => '0');
             end if;
 
           when others =>
 
             uart_tx_sm <= sm_tx_idle;
 
+            tx_bit_index <= (others => '0');
+
         end case;
 
         -- tx subcounter
-        if (uart_clock_tx_en = '1' and uart_clock_tx_en_pulse_cnt = to_unsigned(7, 32)) then
-          uart_clock_tx_en_pulse_cnt <= to_unsigned(0, 32);
-        elsif (uart_clock_tx_en = '1') then
+        if (uart_clock_tx_en = '1') then
           uart_clock_tx_en_pulse_cnt <= uart_clock_tx_en_pulse_cnt + 1;
         end if;
       end if;
@@ -260,17 +213,20 @@ begin
         m_axis_tvalid_t <= '0';
         m_axis_tdata    <= (others => '0');
         uart_rx_sm <= sm_rx_idle;
+        rx_bit_index <= (others => '0');
         uart_clock_rx_en_pulse_cnt <= (others => '0');
     elsif rising_edge(clock) then
         if ((sync_reset = SYNC_RESET_ACTIVE) and (USE_SYNC_RESET = true)) then
             m_axis_tvalid_t <= '0';
             m_axis_tdata    <= (others => '0');
             uart_rx_sm <= sm_rx_idle;
+            rx_bit_index <= (others => '0');
             uart_clock_rx_en_pulse_cnt <= (others => '0');
         elsif soft_reset = '1' then
             m_axis_tvalid_t <= '0';
             m_axis_tdata    <= (others => '0');
             uart_rx_sm <= sm_rx_idle;
+            rx_bit_index <= (others => '0');
             uart_clock_rx_en_pulse_cnt <= (others => '0');
       else
         -- rx sm
@@ -278,6 +234,7 @@ begin
 
           when sm_rx_idle =>
 
+            rx_bit_index <= (others => '0');
             uart_clock_rx_en_pulse_cnt <= (others => '0');
             m_axis_tvalid_t            <= '0';
             if (rxd = '0') then
@@ -287,90 +244,32 @@ begin
 
           when sm_rx_bit_start =>
 
-            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(4, 32)) then
+            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(4, 3)) then
             -- HANDLE AN ERROR HERE TBD
             end if;
-            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(7, 32)) then
-              uart_rx_sm <= sm_rx_bit_0;
+            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(7, 3)) then
+              uart_rx_sm <= sm_rx_data;
             end if;
 
-          when sm_rx_bit_0 =>
+          when sm_rx_data =>
 
-            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(4, 32)) then
-              m_axis_tdata(0) <= rxd;
+            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(4, 3)) then
+              m_axis_tdata(to_integer(rx_bit_index)) <= rxd;
             end if;
-            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(7, 32)) then
-              uart_rx_sm <= sm_rx_bit_1;
-            end if;
-
-          when sm_rx_bit_1 =>
-
-            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(4, 32)) then
-              m_axis_tdata(1) <= rxd;
-            end if;
-            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(7, 32)) then
-              uart_rx_sm <= sm_rx_bit_2;
-            end if;
-
-          when sm_rx_bit_2 =>
-
-            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(4, 32)) then
-              m_axis_tdata(2) <= rxd;
-            end if;
-            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(7, 32)) then
-              uart_rx_sm <= sm_rx_bit_3;
-            end if;
-
-          when sm_rx_bit_3 =>
-
-            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(4, 32)) then
-              m_axis_tdata(3) <= rxd;
-            end if;
-            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(7, 32)) then
-              uart_rx_sm <= sm_rx_bit_4;
-            end if;
-
-          when sm_rx_bit_4 =>
-
-            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(4, 32)) then
-              m_axis_tdata(4) <= rxd;
-            end if;
-            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(7, 32)) then
-              uart_rx_sm <= sm_rx_bit_5;
-            end if;
-
-          when sm_rx_bit_5 =>
-
-            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(4, 32)) then
-              m_axis_tdata(5) <= rxd;
-            end if;
-            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(7, 32)) then
-              uart_rx_sm <= sm_rx_bit_6;
-            end if;
-
-          when sm_rx_bit_6 =>
-
-            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(4, 32)) then
-              m_axis_tdata(6) <= rxd;
-            end if;
-            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(7, 32)) then
-              uart_rx_sm <= sm_rx_bit_7;
-            end if;
-
-          when sm_rx_bit_7 =>
-
-            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(4, 32)) then
-              m_axis_tdata(7) <= rxd;
-            end if;
-            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(7, 32)) then
-              uart_rx_sm <= sm_rx_bit_stop;
+            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(7, 3)) then
+              if (rx_bit_index = to_unsigned(7, 3)) then
+                uart_rx_sm <= sm_rx_bit_stop;
+              else
+                rx_bit_index <= rx_bit_index + 1;
+              end if;
             end if;
 
           when sm_rx_bit_stop =>
 
-            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(4, 32)) then
+            if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(4, 3)) then
               -- HANDLE AN ERROR HERE TBD
               uart_rx_sm <= sm_rx_idle;
+              rx_bit_index <= (others => '0');
             end if;
 
           -- if uart_clock_rx_en='1' and uart_clock_rx_en_pulse_cnt=to_unsigned(7,32) then
@@ -380,19 +279,19 @@ begin
 
             uart_rx_sm <= sm_rx_idle;
 
+            rx_bit_index <= (others => '0');
+
         end case;
 
-        -- Detect SM_RX_BIT_7 and set the m_axis_tvalid_t='1'
-        if (uart_rx_sm = sm_rx_bit_7 and uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(4, 32)) then
+        -- Set m_axis_tvalid_t when sampling data bit 7.
+        if (uart_rx_sm = sm_rx_data and rx_bit_index = to_unsigned(7, 3) and uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(4, 3)) then
           m_axis_tvalid_t <= '1';
         elsif (m_axis_tvalid_t = '1' and m_axis_tready = '1') then
           m_axis_tvalid_t <= '0';
         end if;
 
         -- rx subcounter
-        if (uart_clock_rx_en = '1' and uart_clock_rx_en_pulse_cnt = to_unsigned(7, 32)) then
-          uart_clock_rx_en_pulse_cnt <= to_unsigned(0, 32);
-        elsif (uart_clock_rx_en = '1') then
+        if (uart_clock_rx_en = '1') then
           uart_clock_rx_en_pulse_cnt <= uart_clock_rx_en_pulse_cnt + 1;
         end if;
       end if;
