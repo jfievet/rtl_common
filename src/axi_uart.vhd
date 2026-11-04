@@ -67,12 +67,22 @@ architecture rtl of axi_uart is
     signal rd_state : rd_state_t := RD_IDLE;
 
     signal aw_seen, w_seen : std_logic;
-    signal awaddr_hold : std_logic_vector(31 downto 0);
-    signal wdata_hold : std_logic_vector(31 downto 0);
-    signal wstrb_hold : std_logic_vector(3 downto 0);
+    -- Store a decoded write address rather than the full 32-bit AXI address.
+    constant C_WR_TX_DATA : std_logic_vector(1 downto 0) := "00";
+    constant C_WR_RESET   : std_logic_vector(1 downto 0) := "01";
+    constant C_WR_OTHER   : std_logic_vector(1 downto 0) := "10";
+    signal awaddr_hold : std_logic_vector(1 downto 0);
+    signal wdata_hold : std_logic_vector(7 downto 0);
+    signal wstrb_hold : std_logic;
     signal awready_r, wready_r, bvalid_r : std_logic;
     signal arready_r, rvalid_r : std_logic;
-    signal rdata_r : std_logic_vector(31 downto 0);
+    -- Preserve the full FIFO level width for non-default FIFO depths.
+    function max_nat(a, b : natural) return natural is
+    begin
+        if a > b then return a; else return b; end if;
+    end function;
+    constant C_RDATA_W : natural := max_nat(8, max_nat(C_TX_LW, C_RX_LW));
+    signal rdata_r : std_logic_vector(C_RDATA_W-1 downto 0);
 
     signal tx_fifo_wr_en : std_logic;
     signal tx_fifo_wr_data : std_logic_vector(7 downto 0);
@@ -109,16 +119,16 @@ begin
     ARREADY <= arready_r;
     RVALID <= rvalid_r;
     RRESP <= "00";
-    RDATA <= rdata_r;
+    RDATA <= std_logic_vector(resize(unsigned(rdata_r), RDATA'length));
 
     -- One synchronous controller for the AXI-Lite channels and TX FIFO/UART.
     process (ACLK, async_reset) is
         variable have_aw : boolean;
         variable have_w : boolean;
-        variable addr_v : std_logic_vector(31 downto 0);
-        variable data_v : std_logic_vector(31 downto 0);
-        variable strb_v : std_logic_vector(3 downto 0);
-        variable read_v : std_logic_vector(31 downto 0);
+        variable addr_v : std_logic_vector(1 downto 0);
+        variable data_v : std_logic_vector(7 downto 0);
+        variable strb_v : std_logic;
+        variable read_v : std_logic_vector(C_RDATA_W-1 downto 0);
     begin
         if ((async_reset = ASYNC_RESET_ACTIVE) and (USE_ASYNC_RESET = true)) then
             wr_state <= WR_COLLECT;
@@ -137,7 +147,7 @@ begin
             fifo_reset_pulse <= '0';
             awaddr_hold <= (others => '0');
             wdata_hold <= (others => '0');
-            wstrb_hold <= (others => '0');
+            wstrb_hold <= '0';
         elsif rising_edge(ACLK) then
             if ((sync_reset = SYNC_RESET_ACTIVE) and (USE_SYNC_RESET = true)) then
                 wr_state <= WR_COLLECT;
@@ -156,7 +166,7 @@ begin
                 fifo_reset_pulse <= '0';
                 awaddr_hold <= (others => '0');
                 wdata_hold <= (others => '0');
-                wstrb_hold <= (others => '0');
+                wstrb_hold <= '0';
             elsif fifo_reset_pulse = '1' then
                 wr_state <= WR_COLLECT;
                 rd_state <= RD_IDLE;
@@ -174,7 +184,7 @@ begin
                 fifo_reset_pulse <= '0';
                 awaddr_hold <= (others => '0');
                 wdata_hold <= (others => '0');
-                wstrb_hold <= (others => '0');
+                wstrb_hold <= '0';
             else
                 tx_fifo_wr_en <= '0';
                 rx_fifo_rd_ready <= '0';
@@ -191,28 +201,34 @@ begin
                         data_v := wdata_hold;
                         strb_v := wstrb_hold;
                         if AWVALID = '1' and awready_r = '1' then
-                            addr_v := AWADDR;
-                            awaddr_hold <= AWADDR;
+                            if AWADDR = C_ADDR_TX_DATA then
+                                addr_v := C_WR_TX_DATA;
+                            elsif AWADDR = C_ADDR_RESET then
+                                addr_v := C_WR_RESET;
+                            else
+                                addr_v := C_WR_OTHER;
+                            end if;
+                            awaddr_hold <= addr_v;
                             aw_seen <= '1';
                             have_aw := true;
                             awready_r <= '0';
                         end if;
                         if WVALID = '1' and wready_r = '1' then
-                            data_v := WDATA;
-                            strb_v := WSTRB;
-                            wdata_hold <= WDATA;
-                            wstrb_hold <= WSTRB;
+                            data_v := WDATA(7 downto 0);
+                            strb_v := WSTRB(0);
+                            wdata_hold <= WDATA(7 downto 0);
+                            wstrb_hold <= WSTRB(0);
                             w_seen <= '1';
                             have_w := true;
                             wready_r <= '0';
                         end if;
                         if have_aw and have_w then
                             -- Never acknowledge a TX write that cannot fit.
-                            if addr_v /= C_ADDR_TX_DATA or strb_v(0) = '0' or tx_fifo_wr_ready = '1' then
-                                if addr_v = C_ADDR_TX_DATA and strb_v(0) = '1' then
-                                    tx_fifo_wr_data <= data_v(7 downto 0);
+                            if addr_v /= C_WR_TX_DATA or strb_v = '0' or tx_fifo_wr_ready = '1' then
+                                if addr_v = C_WR_TX_DATA and strb_v = '1' then
+                                    tx_fifo_wr_data <= data_v;
                                     tx_fifo_wr_en <= '1';
-                                elsif addr_v = C_ADDR_RESET then
+                                elsif addr_v = C_WR_RESET then
                                     fifo_reset_pulse <= '1';
                                 end if;
                                 aw_seen <= '0';
