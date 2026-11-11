@@ -7,15 +7,16 @@ use work.axi_lite_interconnect_pkg.all;
 
 entity axi_lite_interconnect is
     generic (
-        USE_ASYNC_RESET    : boolean   := TRUE;
-        USE_SYNC_RESET     : boolean   := TRUE;
-        ASYNC_RESET_ACTIVE : std_logic := '1';
-        SYNC_RESET_ACTIVE  : std_logic := '1';
-        nb_slave_ports     : integer   := 32;
-        nb_master_ports    : integer   := 32;
-        addr_start         : axi_32b_bus_type;
-        addr_end           : axi_32b_bus_type;
-        addr_offset        : axi_32b_bus_type
+        USE_ASYNC_RESET         : boolean   := TRUE;
+        USE_SYNC_RESET          : boolean   := TRUE;
+        ASYNC_RESET_ACTIVE      : std_logic := '1';
+        SYNC_RESET_ACTIVE       : std_logic := '1';
+        USE_SERIAL_INTERCONNECT : boolean := false;
+        nb_slave_ports          : integer   := 32;
+        nb_master_ports         : integer   := 32;
+        addr_start              : axi_32b_bus_type;
+        addr_end                : axi_32b_bus_type;
+        addr_offset             : axi_32b_bus_type
     );
     port (
         clock       : in std_logic;
@@ -356,86 +357,16 @@ begin
     s_axi_arready_i <= schedule_srl when schedule_sm = idle else
         (others => '0');
 
-    axi_interconnect_single_first_inst : entity work.axi_interconnect_single
-        generic map(
-            USE_ASYNC_RESET    => USE_ASYNC_RESET,
-            USE_SYNC_RESET     => USE_SYNC_RESET,
-            ASYNC_RESET_ACTIVE => ASYNC_RESET_ACTIVE,
-            SYNC_RESET_ACTIVE  => SYNC_RESET_ACTIVE,
-            addr_start         => addr_start(0),
-            addr_end           => addr_end(0),
-            addr_offset        => addr_start(0)
-        )
-        port map
-        (
-            clock           => clock,
-            async_reset => async_reset,
-            sync_reset => sync_reset,
-
-            s_axi_awvalid   => front_axi_awvalid,
-            s_axi_awready   => front_axi_awready,
-            s_axi_awaddr    => front_axi_awaddr,
-            s_axi_wvalid    => front_axi_wvalid,
-            s_axi_wready    => front_axi_wready,
-            s_axi_wdata     => front_axi_wdata,
-            s_axi_wstrb     => front_axi_wstrb,
-            s_axi_bvalid    => front_axi_bvalid,
-            s_axi_bready    => front_axi_bready,
-            s_axi_bresp     => front_axi_bresp,
-            s_axi_arvalid   => front_axi_arvalid,
-            s_axi_arready   => front_axi_arready,
-            s_axi_araddr    => front_axi_araddr,
-            s_axi_rvalid    => front_axi_rvalid,
-            s_axi_rready    => front_axi_rready,
-            s_axi_rdata     => front_axi_rdata,
-            s_axi_rresp     => front_axi_rresp,
-            m_a_axi_awvalid => m_axi_awvalid(0),
-            m_a_axi_awready => m_axi_awready(0),
-            m_a_axi_awaddr  => m_axi_awaddr(0),
-            m_a_axi_wvalid  => m_axi_wvalid(0),
-            m_a_axi_wready  => m_axi_wready(0),
-            m_a_axi_wdata   => m_axi_wdata(0),
-            m_a_axi_wstrb   => m_axi_wstrb(0),
-            m_a_axi_bvalid  => m_axi_bvalid(0),
-            m_a_axi_bready  => m_axi_bready(0),
-            m_a_axi_bresp   => m_axi_bresp(0),
-            m_a_axi_arvalid => m_axi_arvalid(0),
-            m_a_axi_arready => m_axi_arready(0),
-            m_a_axi_araddr  => m_axi_araddr(0),
-            m_a_axi_rvalid  => m_axi_rvalid(0),
-            m_a_axi_rready  => m_axi_rready(0),
-            m_a_axi_rdata   => m_axi_rdata(0),
-            m_a_axi_rresp   => m_axi_rresp(0),
-            m_b_axi_awvalid => intermediate_axi_awvalid(0),
-            m_b_axi_awready => intermediate_axi_awready(0),
-            m_b_axi_awaddr  => intermediate_axi_awaddr(0),
-            m_b_axi_wvalid  => intermediate_axi_wvalid(0),
-            m_b_axi_wready  => intermediate_axi_wready(0),
-            m_b_axi_wdata   => intermediate_axi_wdata(0),
-            m_b_axi_wstrb   => intermediate_axi_wstrb(0),
-            m_b_axi_bvalid  => intermediate_axi_bvalid(0),
-            m_b_axi_bready  => intermediate_axi_bready(0),
-            m_b_axi_bresp   => intermediate_axi_bresp(0),
-            m_b_axi_arvalid => intermediate_axi_arvalid(0),
-            m_b_axi_arready => intermediate_axi_arready(0),
-            m_b_axi_araddr  => intermediate_axi_araddr(0),
-            m_b_axi_rvalid  => intermediate_axi_rvalid(0),
-            m_b_axi_rready  => intermediate_axi_rready(0),
-            m_b_axi_rdata   => intermediate_axi_rdata(0),
-            m_b_axi_rresp   => intermediate_axi_rresp(0)
-        );
-
-    interconnect_loop_1_to_end_gen : for k in 1 to NB_MASTER_PORTS - 1 generate
-
-        axi_interconnect_single_1_to_end_inst : entity work.axi_interconnect_single
+    legacy_interconnect_gen : if not USE_SERIAL_INTERCONNECT generate
+        axi_interconnect_single_first_inst : entity work.axi_interconnect_single
             generic map(
                 USE_ASYNC_RESET    => USE_ASYNC_RESET,
                 USE_SYNC_RESET     => USE_SYNC_RESET,
                 ASYNC_RESET_ACTIVE => ASYNC_RESET_ACTIVE,
                 SYNC_RESET_ACTIVE  => SYNC_RESET_ACTIVE,
-                addr_start         => addr_start(k),
-                addr_end           => addr_end(k),
-                addr_offset        => addr_start(k)
+                addr_start         => addr_start(0),
+                addr_end           => addr_end(0),
+                addr_offset        => addr_start(0)
             )
             port map
             (
@@ -443,60 +374,308 @@ begin
                 async_reset => async_reset,
                 sync_reset => sync_reset,
 
-                s_axi_awvalid   => intermediate_axi_awvalid(k - 1),
-                s_axi_awready   => intermediate_axi_awready(k - 1),
-                s_axi_awaddr    => intermediate_axi_awaddr(k - 1),
-                s_axi_wvalid    => intermediate_axi_wvalid(k - 1),
-                s_axi_wready    => intermediate_axi_wready(k - 1),
-                s_axi_wdata     => intermediate_axi_wdata(k - 1),
-                s_axi_wstrb     => intermediate_axi_wstrb(k - 1),
-                s_axi_bvalid    => intermediate_axi_bvalid(k - 1),
-                s_axi_bready    => intermediate_axi_bready(k - 1),
-                s_axi_bresp     => intermediate_axi_bresp(k - 1),
-                s_axi_arvalid   => intermediate_axi_arvalid(k - 1),
-                s_axi_arready   => intermediate_axi_arready(k - 1),
-                s_axi_araddr    => intermediate_axi_araddr(k - 1),
-                s_axi_rvalid    => intermediate_axi_rvalid(k - 1),
-                s_axi_rready    => intermediate_axi_rready(k - 1),
-                s_axi_rdata     => intermediate_axi_rdata(k - 1),
-                s_axi_rresp     => intermediate_axi_rresp(k - 1),
-                m_a_axi_awvalid => m_axi_awvalid(k),
-                m_a_axi_awready => m_axi_awready(k),
-                m_a_axi_awaddr  => m_axi_awaddr(k),
-                m_a_axi_wvalid  => m_axi_wvalid(k),
-                m_a_axi_wready  => m_axi_wready(k),
-                m_a_axi_wdata   => m_axi_wdata(k),
-                m_a_axi_wstrb   => m_axi_wstrb(k),
-                m_a_axi_bvalid  => m_axi_bvalid(k),
-                m_a_axi_bready  => m_axi_bready(k),
-                m_a_axi_bresp   => m_axi_bresp(k),
-                m_a_axi_arvalid => m_axi_arvalid(k),
-                m_a_axi_arready => m_axi_arready(k),
-                m_a_axi_araddr  => m_axi_araddr(k),
-                m_a_axi_rvalid  => m_axi_rvalid(k),
-                m_a_axi_rready  => m_axi_rready(k),
-                m_a_axi_rdata   => m_axi_rdata(k),
-                m_a_axi_rresp   => m_axi_rresp(k),
-                m_b_axi_awvalid => intermediate_axi_awvalid(k),
-                m_b_axi_awready => intermediate_axi_awready(k),
-                m_b_axi_awaddr  => intermediate_axi_awaddr(k),
-                m_b_axi_wvalid  => intermediate_axi_wvalid(k),
-                m_b_axi_wready  => intermediate_axi_wready(k),
-                m_b_axi_wdata   => intermediate_axi_wdata(k),
-                m_b_axi_wstrb   => intermediate_axi_wstrb(k),
-                m_b_axi_bvalid  => intermediate_axi_bvalid(k),
-                m_b_axi_bready  => intermediate_axi_bready(k),
-                m_b_axi_bresp   => intermediate_axi_bresp(k),
-                m_b_axi_arvalid => intermediate_axi_arvalid(k),
-                m_b_axi_arready => intermediate_axi_arready(k),
-                m_b_axi_araddr  => intermediate_axi_araddr(k),
-                m_b_axi_rvalid  => intermediate_axi_rvalid(k),
-                m_b_axi_rready  => intermediate_axi_rready(k),
-                m_b_axi_rdata   => intermediate_axi_rdata(k),
-                m_b_axi_rresp   => intermediate_axi_rresp(k)
+                s_axi_awvalid   => front_axi_awvalid,
+                s_axi_awready   => front_axi_awready,
+                s_axi_awaddr    => front_axi_awaddr,
+                s_axi_wvalid    => front_axi_wvalid,
+                s_axi_wready    => front_axi_wready,
+                s_axi_wdata     => front_axi_wdata,
+                s_axi_wstrb     => front_axi_wstrb,
+                s_axi_bvalid    => front_axi_bvalid,
+                s_axi_bready    => front_axi_bready,
+                s_axi_bresp     => front_axi_bresp,
+                s_axi_arvalid   => front_axi_arvalid,
+                s_axi_arready   => front_axi_arready,
+                s_axi_araddr    => front_axi_araddr,
+                s_axi_rvalid    => front_axi_rvalid,
+                s_axi_rready    => front_axi_rready,
+                s_axi_rdata     => front_axi_rdata,
+                s_axi_rresp     => front_axi_rresp,
+                m_a_axi_awvalid => m_axi_awvalid(0),
+                m_a_axi_awready => m_axi_awready(0),
+                m_a_axi_awaddr  => m_axi_awaddr(0),
+                m_a_axi_wvalid  => m_axi_wvalid(0),
+                m_a_axi_wready  => m_axi_wready(0),
+                m_a_axi_wdata   => m_axi_wdata(0),
+                m_a_axi_wstrb   => m_axi_wstrb(0),
+                m_a_axi_bvalid  => m_axi_bvalid(0),
+                m_a_axi_bready  => m_axi_bready(0),
+                m_a_axi_bresp   => m_axi_bresp(0),
+                m_a_axi_arvalid => m_axi_arvalid(0),
+                m_a_axi_arready => m_axi_arready(0),
+                m_a_axi_araddr  => m_axi_araddr(0),
+                m_a_axi_rvalid  => m_axi_rvalid(0),
+                m_a_axi_rready  => m_axi_rready(0),
+                m_a_axi_rdata   => m_axi_rdata(0),
+                m_a_axi_rresp   => m_axi_rresp(0),
+                m_b_axi_awvalid => intermediate_axi_awvalid(0),
+                m_b_axi_awready => intermediate_axi_awready(0),
+                m_b_axi_awaddr  => intermediate_axi_awaddr(0),
+                m_b_axi_wvalid  => intermediate_axi_wvalid(0),
+                m_b_axi_wready  => intermediate_axi_wready(0),
+                m_b_axi_wdata   => intermediate_axi_wdata(0),
+                m_b_axi_wstrb   => intermediate_axi_wstrb(0),
+                m_b_axi_bvalid  => intermediate_axi_bvalid(0),
+                m_b_axi_bready  => intermediate_axi_bready(0),
+                m_b_axi_bresp   => intermediate_axi_bresp(0),
+                m_b_axi_arvalid => intermediate_axi_arvalid(0),
+                m_b_axi_arready => intermediate_axi_arready(0),
+                m_b_axi_araddr  => intermediate_axi_araddr(0),
+                m_b_axi_rvalid  => intermediate_axi_rvalid(0),
+                m_b_axi_rready  => intermediate_axi_rready(0),
+                m_b_axi_rdata   => intermediate_axi_rdata(0),
+                m_b_axi_rresp   => intermediate_axi_rresp(0)
             );
 
-    end generate interconnect_loop_1_to_end_gen;
+        interconnect_loop_1_to_end_gen : for k in 1 to NB_MASTER_PORTS - 1 generate
+
+            axi_interconnect_single_1_to_end_inst : entity work.axi_interconnect_single
+                generic map(
+                    USE_ASYNC_RESET    => USE_ASYNC_RESET,
+                    USE_SYNC_RESET     => USE_SYNC_RESET,
+                    ASYNC_RESET_ACTIVE => ASYNC_RESET_ACTIVE,
+                    SYNC_RESET_ACTIVE  => SYNC_RESET_ACTIVE,
+                    addr_start         => addr_start(k),
+                    addr_end           => addr_end(k),
+                    addr_offset        => addr_start(k)
+                )
+                port map
+                (
+                    clock           => clock,
+                    async_reset => async_reset,
+                    sync_reset => sync_reset,
+
+                    s_axi_awvalid   => intermediate_axi_awvalid(k - 1),
+                    s_axi_awready   => intermediate_axi_awready(k - 1),
+                    s_axi_awaddr    => intermediate_axi_awaddr(k - 1),
+                    s_axi_wvalid    => intermediate_axi_wvalid(k - 1),
+                    s_axi_wready    => intermediate_axi_wready(k - 1),
+                    s_axi_wdata     => intermediate_axi_wdata(k - 1),
+                    s_axi_wstrb     => intermediate_axi_wstrb(k - 1),
+                    s_axi_bvalid    => intermediate_axi_bvalid(k - 1),
+                    s_axi_bready    => intermediate_axi_bready(k - 1),
+                    s_axi_bresp     => intermediate_axi_bresp(k - 1),
+                    s_axi_arvalid   => intermediate_axi_arvalid(k - 1),
+                    s_axi_arready   => intermediate_axi_arready(k - 1),
+                    s_axi_araddr    => intermediate_axi_araddr(k - 1),
+                    s_axi_rvalid    => intermediate_axi_rvalid(k - 1),
+                    s_axi_rready    => intermediate_axi_rready(k - 1),
+                    s_axi_rdata     => intermediate_axi_rdata(k - 1),
+                    s_axi_rresp     => intermediate_axi_rresp(k - 1),
+                    m_a_axi_awvalid => m_axi_awvalid(k),
+                    m_a_axi_awready => m_axi_awready(k),
+                    m_a_axi_awaddr  => m_axi_awaddr(k),
+                    m_a_axi_wvalid  => m_axi_wvalid(k),
+                    m_a_axi_wready  => m_axi_wready(k),
+                    m_a_axi_wdata   => m_axi_wdata(k),
+                    m_a_axi_wstrb   => m_axi_wstrb(k),
+                    m_a_axi_bvalid  => m_axi_bvalid(k),
+                    m_a_axi_bready  => m_axi_bready(k),
+                    m_a_axi_bresp   => m_axi_bresp(k),
+                    m_a_axi_arvalid => m_axi_arvalid(k),
+                    m_a_axi_arready => m_axi_arready(k),
+                    m_a_axi_araddr  => m_axi_araddr(k),
+                    m_a_axi_rvalid  => m_axi_rvalid(k),
+                    m_a_axi_rready  => m_axi_rready(k),
+                    m_a_axi_rdata   => m_axi_rdata(k),
+                    m_a_axi_rresp   => m_axi_rresp(k),
+                    m_b_axi_awvalid => intermediate_axi_awvalid(k),
+                    m_b_axi_awready => intermediate_axi_awready(k),
+                    m_b_axi_awaddr  => intermediate_axi_awaddr(k),
+                    m_b_axi_wvalid  => intermediate_axi_wvalid(k),
+                    m_b_axi_wready  => intermediate_axi_wready(k),
+                    m_b_axi_wdata   => intermediate_axi_wdata(k),
+                    m_b_axi_wstrb   => intermediate_axi_wstrb(k),
+                    m_b_axi_bvalid  => intermediate_axi_bvalid(k),
+                    m_b_axi_bready  => intermediate_axi_bready(k),
+                    m_b_axi_bresp   => intermediate_axi_bresp(k),
+                    m_b_axi_arvalid => intermediate_axi_arvalid(k),
+                    m_b_axi_arready => intermediate_axi_arready(k),
+                    m_b_axi_araddr  => intermediate_axi_araddr(k),
+                    m_b_axi_rvalid  => intermediate_axi_rvalid(k),
+                    m_b_axi_rready  => intermediate_axi_rready(k),
+                    m_b_axi_rdata   => intermediate_axi_rdata(k),
+                    m_b_axi_rresp   => intermediate_axi_rresp(k)
+                );
+
+        end generate interconnect_loop_1_to_end_gen;
+
+    end generate legacy_interconnect_gen;
+
+
+    serial_interconnect_gen : if USE_SERIAL_INTERCONNECT generate
+        type state_t is (idle, write_send, write_wait_b, write_return,
+                         read_send, read_wait_r, read_return);
+        signal state : state_t := idle;
+        signal aw_saved, w_saved : std_logic := '0';
+        signal aw_address, w_payload : std_logic_vector(31 downto 0) := (others => '0');
+        signal w_strobes : std_logic_vector(3 downto 0) := (others => '0');
+        signal target : integer range 0 to nb_master_ports - 1 := 0;
+        signal hit : std_logic := '0';
+        signal aw_done, w_done : std_logic := '0';
+        signal response_b, response_r : std_logic_vector(1 downto 0) := (others => '0');
+        signal response_data : std_logic_vector(31 downto 0) := (others => '0');
+        signal aw_decode, ar_decode : integer range 0 to nb_master_ports - 1 := 0;
+        signal aw_hit, ar_hit : std_logic := '0';
+        signal aw_addr_effective : std_logic_vector(31 downto 0);
+    begin
+        assert nb_master_ports > 0 report "nb_master_ports must be positive" severity failure;
+
+        -- Lowest-numbered matching port wins. Purely combinational decode.
+        process(all)
+            variable aw_found, ar_found : boolean;
+            variable aw_idx, ar_idx : integer range 0 to nb_master_ports - 1;
+        begin
+            aw_found := false; ar_found := false;
+            aw_idx := 0; ar_idx := 0;
+            for k in 0 to nb_master_ports - 1 loop
+                if not aw_found and unsigned(aw_addr_effective) >= unsigned(addr_start(k))
+                   and unsigned(aw_addr_effective) <= unsigned(addr_end(k)) then
+                    aw_idx := k; aw_found := true;
+                end if;
+                if not ar_found and unsigned(front_axi_araddr) >= unsigned(addr_start(k))
+                   and unsigned(front_axi_araddr) <= unsigned(addr_end(k)) then
+                    ar_idx := k; ar_found := true;
+                end if;
+            end loop;
+            aw_decode <= aw_idx; ar_decode <= ar_idx;
+            if aw_found then aw_hit <= '1'; else aw_hit <= '0'; end if;
+            if ar_found then ar_hit <= '1'; else ar_hit <= '0'; end if;
+        end process;
+        aw_addr_effective <= aw_address when aw_saved = '1' else front_axi_awaddr;
+
+        -- Backpressure is applied at the front boundary. AW and W may arrive separately.
+        front_axi_awready <= '1' when state = idle and aw_saved = '0'
+                                   and front_axi_arvalid = '0' else '0';
+        front_axi_wready  <= '1' when state = idle and w_saved = '0'
+                                   and front_axi_arvalid = '0' else '0';
+        front_axi_arready <= '1' when state = idle and aw_saved = '0'
+                                   and w_saved = '0' else '0';
+        front_axi_bvalid <= '1' when state = write_return else '0';
+        front_axi_bresp  <= response_b;
+        front_axi_rvalid <= '1' when state = read_return else '0';
+        front_axi_rresp  <= response_r;
+        front_axi_rdata  <= response_data;
+
+        process(all)
+        begin
+            m_axi_awvalid <= (others => '0');
+            m_axi_awaddr  <= (others => (others => '0'));
+            m_axi_wvalid  <= (others => '0');
+            m_axi_wdata   <= (others => (others => '0'));
+            m_axi_wstrb   <= (others => (others => '0'));
+            m_axi_bready  <= (others => '0');
+            m_axi_arvalid <= (others => '0');
+            m_axi_araddr  <= (others => (others => '0'));
+            m_axi_rready  <= (others => '0');
+            if hit = '1' then
+                case state is
+                    when write_send =>
+                        m_axi_awvalid(target) <= not aw_done;
+                        m_axi_awaddr(target)  <= aw_address;
+                        m_axi_wvalid(target)  <= not w_done;
+                        m_axi_wdata(target)   <= w_payload;
+                        m_axi_wstrb(target)   <= w_strobes;
+                    when write_wait_b =>
+                        m_axi_bready(target) <= '1';
+                    when read_send =>
+                        m_axi_arvalid(target) <= '1';
+                        m_axi_araddr(target)  <= aw_address;
+                    when read_wait_r =>
+                        m_axi_rready(target) <= '1';
+                    when others => null;
+                end case;
+            end if;
+        end process;
+
+        process(clock, async_reset)
+        begin
+            if USE_ASYNC_RESET and async_reset = ASYNC_RESET_ACTIVE then
+                state <= idle;
+                aw_saved <= '0'; w_saved <= '0';
+                aw_address <= (others => '0'); w_payload <= (others => '0');
+                w_strobes <= (others => '0');
+                target <= 0; hit <= '0'; aw_done <= '0'; w_done <= '0';
+                response_b <= (others => '0'); response_r <= (others => '0');
+                response_data <= (others => '0');
+            elsif rising_edge(clock) then
+                if USE_SYNC_RESET and sync_reset = SYNC_RESET_ACTIVE then
+                    state <= idle;
+                    aw_saved <= '0'; w_saved <= '0';
+                    aw_address <= (others => '0'); w_payload <= (others => '0');
+                    w_strobes <= (others => '0');
+                    target <= 0; hit <= '0'; aw_done <= '0'; w_done <= '0';
+                    response_b <= (others => '0'); response_r <= (others => '0');
+                    response_data <= (others => '0');
+                else
+                    case state is
+                        when idle =>
+                            if front_axi_arvalid = '1' and front_axi_arready = '1' then
+                                aw_address <= front_axi_araddr;
+                                target <= ar_decode; hit <= ar_hit;
+                                if ar_hit = '1' then
+                                    state <= read_send;
+                                else
+                                    response_data <= (others => '0');
+                                    response_r <= "11"; -- DECERR
+                                    state <= read_return;
+                                end if;
+                            else
+                                if front_axi_awvalid = '1' and front_axi_awready = '1' then
+                                    aw_address <= front_axi_awaddr;
+                                    aw_saved <= '1';
+                                end if;
+                                if front_axi_wvalid = '1' and front_axi_wready = '1' then
+                                    w_payload <= front_axi_wdata;
+                                    w_strobes <= front_axi_wstrb;
+                                    w_saved <= '1';
+                                end if;
+                                if (aw_saved = '1' or (front_axi_awvalid = '1' and front_axi_awready = '1'))
+                                   and (w_saved = '1' or (front_axi_wvalid = '1' and front_axi_wready = '1')) then
+                                    target <= aw_decode; hit <= aw_hit;
+                                    aw_saved <= '0'; w_saved <= '0';
+                                    aw_done <= '0'; w_done <= '0';
+                                    if aw_hit = '1' then
+                                        state <= write_send;
+                                    else
+                                        response_b <= "11"; -- DECERR
+                                        state <= write_return;
+                                    end if;
+                                end if;
+                            end if;
+                        when write_send =>
+                            if aw_done = '0' and m_axi_awready(target) = '1' then
+                                aw_done <= '1';
+                            end if;
+                            if w_done = '0' and m_axi_wready(target) = '1' then
+                                w_done <= '1';
+                            end if;
+                            if (aw_done = '1' or m_axi_awready(target) = '1')
+                               and (w_done = '1' or m_axi_wready(target) = '1') then
+                                state <= write_wait_b;
+                            end if;
+                        when write_wait_b =>
+                            if m_axi_bvalid(target) = '1' then
+                                response_b <= m_axi_bresp(target);
+                                state <= write_return;
+                            end if;
+                        when write_return =>
+                            if front_axi_bready = '1' then state <= idle; end if;
+                        when read_send =>
+                            if m_axi_arready(target) = '1' then state <= read_wait_r; end if;
+                        when read_wait_r =>
+                            if m_axi_rvalid(target) = '1' then
+                                response_data <= m_axi_rdata(target);
+                                response_r <= m_axi_rresp(target);
+                                state <= read_return;
+                            end if;
+                        when read_return =>
+                            if front_axi_rready = '1' then state <= idle; end if;
+                    end case;
+                end if;
+            end if;
+        end process;
+    end generate serial_interconnect_gen;
 
     -- template_pr: process(__CLOCK__, __ASYNC_RESET__)
     -- begin
