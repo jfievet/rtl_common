@@ -522,7 +522,7 @@ begin
         assert nb_master_ports > 0 report "nb_master_ports must be positive" severity failure;
 
         -- Lowest-numbered matching port wins. Purely combinational decode.
-        process(all)
+        process(aw_addr_effective, front_axi_araddr)
             variable aw_found, ar_found : boolean;
             variable aw_idx, ar_idx : integer range 0 to nb_master_ports - 1;
         begin
@@ -557,7 +557,8 @@ begin
         front_axi_rresp  <= response_r;
         front_axi_rdata  <= response_data;
 
-        process(all)
+        process(hit, state, target, aw_done, aw_address,
+                w_done, w_payload, w_strobes)
         begin
             m_axi_awvalid <= (others => '0');
             m_axi_awaddr  <= (others => (others => '0'));
